@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import '../../animation/smoothed_value.dart';
 import '../../models/dash_style.dart';
 import '../../models/dash_telemetry.dart';
+import '../../models/gear.dart';
 import '../../painters/analog_gauge_painter.dart';
 
 class AnalogClusterBody extends StatefulWidget {
