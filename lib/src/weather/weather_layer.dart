@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../models/weather_type.dart';
-import 'weather_painter.dart';
+import 'fw/bg/weather_bg.dart';
 
-class WeatherLayer extends StatefulWidget {
+/// Weather background layer backed by vendored flutter_weather_bg.
+class WeatherLayer extends StatelessWidget {
   const WeatherLayer({
     super.key,
     required this.type,
@@ -15,41 +15,25 @@ class WeatherLayer extends StatefulWidget {
   final double opacity;
 
   @override
-  State<WeatherLayer> createState() => _WeatherLayerState();
-}
-
-class _WeatherLayerState extends State<WeatherLayer>
-    with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
-  Duration _elapsed = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    _ticker = createTicker((elapsed) {
-      _elapsed = elapsed;
-      setState(() {});
-    })
-      ..start();
-  }
-
-  @override
-  void dispose() {
-    _ticker.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final progress = _elapsed.inMilliseconds / 1000.0;
-    return RepaintBoundary(
-      child: CustomPaint(
-        painter: WeatherPainter(
-          type: widget.type,
-          progress: progress,
-          opacity: widget.opacity,
+    return IgnorePointer(
+      child: Opacity(
+        opacity: opacity.clamp(0.0, 1.0),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : MediaQuery.sizeOf(context).width;
+            final h = constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : MediaQuery.sizeOf(context).height;
+            return WeatherBg(
+              weatherType: type.toFwWeatherType,
+              width: w,
+              height: h,
+            );
+          },
         ),
-        size: Size.infinite,
       ),
     );
   }

@@ -1,4 +1,6 @@
-/// Optional animated weather background.
+import '../weather/fw/utils/weather_type.dart';
+
+/// Optional animated weather background (public API).
 enum WeatherType {
   sunny,
   cloudy,
@@ -32,5 +34,23 @@ extension WeatherTypeX on WeatherType {
         WeatherType.fog => '雾',
         WeatherType.haze => '霾',
         WeatherType.dust => '浮尘',
+      };
+
+  /// Maps to vendored flutter_weather_bg types.
+  FwWeatherType get toFwWeatherType => switch (this) {
+        WeatherType.sunny => FwWeatherType.sunny,
+        WeatherType.cloudy => FwWeatherType.cloudy,
+        WeatherType.overcast => FwWeatherType.overcast,
+        WeatherType.lightRain => FwWeatherType.lightRainy,
+        WeatherType.mediumRain => FwWeatherType.middleRainy,
+        WeatherType.heavyRain => FwWeatherType.heavyRainy,
+        WeatherType.thunderstorm => FwWeatherType.thunder,
+        WeatherType.lightSnow => FwWeatherType.lightSnow,
+        WeatherType.mediumSnow => FwWeatherType.middleSnow,
+        WeatherType.heavySnow => FwWeatherType.heavySnow,
+        WeatherType.sunnySnow => FwWeatherType.lightSnow,
+        WeatherType.fog => FwWeatherType.foggy,
+        WeatherType.haze => FwWeatherType.hazy,
+        WeatherType.dust => FwWeatherType.dusty,
       };
 }

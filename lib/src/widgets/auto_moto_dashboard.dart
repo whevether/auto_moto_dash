@@ -36,8 +36,6 @@ class AutoMotoDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final weatherOpacity = style.isAnalog ? 0.45 : 0.85;
-
     return ColoredBox(
       color: backgroundColor,
       child: Stack(
@@ -46,7 +44,7 @@ class AutoMotoDashboard extends StatelessWidget {
           if (weather != null)
             WeatherLayer(
               type: weather!,
-              opacity: weatherOpacity,
+              opacity: 1,
             ),
           if (style.isDigital)
             DigitalHudBody(
@@ -62,6 +60,7 @@ class AutoMotoDashboard extends StatelessWidget {
             AnalogClusterBody(
               telemetry: telemetry,
               style: style,
+              dimForWeather: weather != null,
             ),
         ],
       ),

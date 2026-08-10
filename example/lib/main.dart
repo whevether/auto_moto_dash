@@ -1,5 +1,6 @@
 import 'package:auto_moto_dash/auto_moto_dash.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 void main() {
@@ -35,7 +36,15 @@ class DashDemoPage extends StatefulWidget {
   State<DashDemoPage> createState() => _DashDemoPageState();
 }
 
-class _DashDemoPageState extends State<DashDemoPage> {
+class _DashDemoPageState extends State<DashDemoPage>
+    with SingleTickerProviderStateMixin {
+  static const double _maxSpeed = 260;
+  static const double _accelRate = 55; // km/h per second
+  static const double _brakeRate = 70;
+  static const double _coastRate = 28;
+
+  final FocusNode _focusNode = FocusNode();
+
   DashStyle _style = DashStyle.hud;
   WeatherType? _weather = WeatherType.cloudy;
   VehicleType _vehicleType = VehicleType.car;
@@ -44,6 +53,15 @@ class _DashDemoPageState extends State<DashDemoPage> {
   Gear _gear = Gear.park;
   bool _panelOpen = false;
   bool _rainbow = false;
+
+  bool _pointerAccelerating = false;
+  bool _keyAccelerating = false;
+  bool _keyBraking = false;
+
+  late final Ticker _ticker;
+  Duration _lastTick = Duration.zero;
+
+  bool get _accelerating => _pointerAccelerating || _keyAccelerating;
 
   DashTelemetry get _telemetry => DashTelemetry(
         speedKmh: _speed,
@@ -59,9 +77,7 @@ class _DashDemoPageState extends State<DashDemoPage> {
         outsideTempC: 0,
         gear: _gear,
         gearNumber: _style == DashStyle.racing
-            ? (_speed < 1
-                ? 1
-                : (_speed / 40).ceil().clamp(1, 6))
+            ? (_speed < 1 ? 1 : (_speed / 40).ceil().clamp(1, 6))
             : null,
         tirePressures: const TirePressures(
           frontLeft: 2.9,
@@ -72,61 +88,179 @@ class _DashDemoPageState extends State<DashDemoPage> {
       );
 
   @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick)..start();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onTick(Duration elapsed) {
+    final dt = _lastTick == Duration.zero
+        ? 1 / 60
+        : (elapsed - _lastTick).inMicroseconds / 1e6;
+    _lastTick = elapsed;
+    if (dt <= 0 || dt > 0.1) return;
+
+    var next = _speed;
+    if (_keyBraking) {
+      next -= _brakeRate * dt;
+    } else if (_accelerating) {
+      next += _accelRate * dt;
+    } else {
+      next -= _coastRate * dt;
+    }
+    next = next.clamp(0, _maxSpeed);
+
+    final gearFactor = switch (_gear) {
+      Gear.park || Gear.neutral => 0.15,
+      Gear.reverse => 0.55,
+      Gear.drive => 1.0,
+    };
+    final targetRpm = _accelerating
+        ? (900 + next * 28 * gearFactor).clamp(800, 8000)
+        : (800 + next * 18 * gearFactor).clamp(800, 7500);
+
+    if ((next - _speed).abs() > 0.01 || (targetRpm - _rpm).abs() > 1) {
+      setState(() {
+        _speed = next;
+        final t = (12 * dt).clamp(0.0, 1.0);
+        _rpm += (targetRpm - _rpm) * t;
+      });
+    }
+  }
+
+  void _shiftGear(int delta) {
+    final values = Gear.values;
+    final i = (values.indexOf(_gear) + delta).clamp(0, values.length - 1);
+    setState(() => _gear = values[i]);
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final isDown = event is KeyDownEvent || event is KeyRepeatEvent;
+    final isUp = event is KeyUpEvent;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (isDown) _keyAccelerating = true;
+      if (isUp) _keyAccelerating = false;
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (isDown) _keyBraking = true;
+      if (isUp) _keyBraking = false;
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+        event is KeyDownEvent) {
+      _shiftGear(-1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
+        event is KeyDownEvent) {
+      _shiftGear(1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _closePanel() => setState(() => _panelOpen = false);
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          AutoMotoDashboard(
-            telemetry: _telemetry,
-            style: _style,
-            weather: _weather,
-            vehicleType: _vehicleType,
-            lightSpeedThresholdKmh: 80,
-            rainbowSpeed: _rainbow,
-          ),
-          Positioned(
-            right: 12,
-            bottom: 16,
-            child: SafeArea(
-              child: FloatingActionButton.small(
-                heroTag: 'panel',
-                backgroundColor: Colors.white12,
-                onPressed: () => setState(() => _panelOpen = !_panelOpen),
-                child: Icon(_panelOpen ? Icons.close : Icons.tune),
-              ),
-            ),
-          ),
-          if (_panelOpen)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: _ControlPanel(
+      body: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _onKey,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (_) {
+                if (_panelOpen) return;
+                setState(() => _pointerAccelerating = true);
+              },
+              onPointerUp: (_) =>
+                  setState(() => _pointerAccelerating = false),
+              onPointerCancel: (_) =>
+                  setState(() => _pointerAccelerating = false),
+              child: AutoMotoDashboard(
+                telemetry: _telemetry,
                 style: _style,
                 weather: _weather,
                 vehicleType: _vehicleType,
-                speed: _speed,
-                rpm: _rpm,
-                gear: _gear,
-                rainbow: _rainbow,
-                onStyle: (v) => setState(() => _style = v),
-                onWeather: (v) => setState(() => _weather = v),
-                onVehicle: (v) => setState(() => _vehicleType = v),
-                onSpeed: (v) => setState(() {
-                  _speed = v;
-                  if (v > 1 && _gear == Gear.park) _gear = Gear.drive;
-                  if (v < 1 && _gear == Gear.drive) _gear = Gear.park;
-                  // Couple rpm roughly to speed for demo feel.
-                  if (_style.isAnalog) {
-                    _rpm = (800 + v * 28).clamp(0, 8000);
-                  }
-                }),
-                onRpm: (v) => setState(() => _rpm = v),
-                onGear: (v) => setState(() => _gear = v),
-                onRainbow: (v) => setState(() => _rainbow = v),
+                lightSpeedThresholdKmh: 80,
+                rainbowSpeed: _rainbow,
               ),
             ),
-        ],
+            if (_panelOpen) ...[
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _closePanel,
+                  behavior: HitTestBehavior.opaque,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.35),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: _ControlPanel(
+                  style: _style,
+                  weather: _weather,
+                  vehicleType: _vehicleType,
+                  speed: _speed,
+                  rpm: _rpm,
+                  gear: _gear,
+                  rainbow: _rainbow,
+                  onClose: _closePanel,
+                  onStyle: (v) => setState(() => _style = v),
+                  onWeather: (v) => setState(() => _weather = v),
+                  onVehicle: (v) => setState(() => _vehicleType = v),
+                  onGear: (v) => setState(() => _gear = v),
+                  onRainbow: (v) => setState(() => _rainbow = v),
+                ),
+              ),
+            ],
+            Positioned(
+              right: 12,
+              bottom: 16,
+              child: SafeArea(
+                child: FloatingActionButton.small(
+                  heroTag: 'panel',
+                  backgroundColor: Colors.white12,
+                  onPressed: () => setState(() => _panelOpen = !_panelOpen),
+                  child: Icon(_panelOpen ? Icons.close : Icons.tune),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              bottom: 16,
+              child: SafeArea(
+                child: IgnorePointer(
+                  child: Text(
+                    '按住加速 · ↑↓加减速 · ←→换档 · ${_speed.round()} km/h',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -141,11 +275,10 @@ class _ControlPanel extends StatelessWidget {
     required this.rpm,
     required this.gear,
     required this.rainbow,
+    required this.onClose,
     required this.onStyle,
     required this.onWeather,
     required this.onVehicle,
-    required this.onSpeed,
-    required this.onRpm,
     required this.onGear,
     required this.onRainbow,
   });
@@ -157,11 +290,10 @@ class _ControlPanel extends StatelessWidget {
   final double rpm;
   final Gear gear;
   final bool rainbow;
+  final VoidCallback onClose;
   final ValueChanged<DashStyle> onStyle;
   final ValueChanged<WeatherType?> onWeather;
   final ValueChanged<VehicleType> onVehicle;
-  final ValueChanged<double> onSpeed;
-  final ValueChanged<double> onRpm;
   final ValueChanged<Gear> onGear;
   final ValueChanged<bool> onRainbow;
 
@@ -177,19 +309,46 @@ class _ControlPanel extends StatelessWidget {
             maxHeight: MediaQuery.sizeOf(context).height * 0.55,
           ),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
+              Row(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
                   ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              Text(
+                '车速 ${speed.round()} km/h'
+                '${style.isAnalog ? ' · 转速 ${rpm.round()} rpm' : ''}',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 13,
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                '长按仪表加速，松手减速；键盘 ↑↓ 加减速，←→ 换档',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
               const Text('主题', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
@@ -225,52 +384,34 @@ class _ControlPanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Text('车速 ${speed.round()} km/h'),
-              Slider(
-                value: speed,
-                max: 260,
-                onChanged: onSpeed,
-              ),
-              if (style.isAnalog) ...[
-                Text('转速 ${rpm.round()} rpm'),
-                Slider(
-                  value: rpm,
-                  max: 8000,
-                  onChanged: onRpm,
-                ),
-              ],
+              const Text('档位', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Text('档位'),
-                  const SizedBox(width: 12),
-                  ...Gear.values.map((g) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text(g.label),
-                        selected: gear == g,
-                        onSelected: (_) => onGear(g),
-                      ),
-                    );
-                  }),
-                ],
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: Gear.values.map((g) {
+                  return ChoiceChip(
+                    label: Text(g.label),
+                    selected: gear == g,
+                    onSelected: (_) => onGear(g),
+                  );
+                }).toList(),
               ),
-              const SizedBox(height: 8),
-              Row(
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   ChoiceChip(
                     label: const Text('汽车'),
                     selected: vehicleType == VehicleType.car,
                     onSelected: (_) => onVehicle(VehicleType.car),
                   ),
-                  const SizedBox(width: 8),
                   ChoiceChip(
                     label: const Text('摩托'),
                     selected: vehicleType == VehicleType.motorcycle,
                     onSelected: (_) => onVehicle(VehicleType.motorcycle),
                   ),
-                  const Spacer(),
                   FilterChip(
                     label: const Text('彩虹速度'),
                     selected: rainbow,

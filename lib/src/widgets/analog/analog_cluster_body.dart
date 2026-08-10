@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -12,10 +15,14 @@ class AnalogClusterBody extends StatefulWidget {
     super.key,
     required this.telemetry,
     required this.style,
+    this.dimForWeather = false,
   });
 
   final DashTelemetry telemetry;
   final DashStyle style;
+
+  /// When true, cluster hood stays translucent so weather shows through.
+  final bool dimForWeather;
 
   @override
   State<AnalogClusterBody> createState() => _AnalogClusterBodyState();
@@ -69,127 +76,420 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
     super.dispose();
   }
 
-  AnalogGaugeStyle get _gaugeStyle {
-    if (_racing) {
-      return const AnalogGaugeStyle(
-        ringColor: Color(0xFF2A2A2A),
-        tickColor: Color(0xFFF5F5F5),
-        labelColor: Color(0xFFE0E0E0),
-        needleColor: Color(0xFFFF1744),
-        capColor: Color(0xFF111111),
-        redlineColor: Color(0xFFFF1744),
-        faceColor: Color(0xFF050505),
-        glowColor: Color(0x22FF1744),
-      );
-    }
-    return const AnalogGaugeStyle(
-      ringColor: Color(0xFF4A4F58),
-      tickColor: Color(0xFFEDEDED),
-      labelColor: Color(0xFFD0D0D0),
-      needleColor: Color(0xFFFFB74D),
-      capColor: Color(0xFF1C1C1C),
-      redlineColor: Color(0xFFE53935),
-      faceColor: Color(0xFF121418),
-      glowColor: Color(0x33FFF3E0),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = widget.telemetry;
     final redPulse = _racing && _rpm.value >= t.redlineRpm;
     final pulse = ((_phase * 8) % 1.0 - 0.5).abs() * 2;
-    final bg = redPulse
-        ? Color.lerp(Colors.black, const Color(0xFF3B0000), 0.25 + 0.35 * pulse)!
-        : Colors.black;
 
-    return ColoredBox(
-      color: bg,
+    return CustomPaint(
+      painter: _ClusterHoodPainter(
+        racing: _racing,
+        redPulse: redPulse ? 0.25 + 0.35 * pulse : 0,
+        showWeather: widget.dimForWeather,
+      ),
       child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= constraints.maxHeight;
-            final gauges = wide
-                ? Row(
-                    children: [
-                      Expanded(child: _rpmGauge(t)),
-                      Expanded(child: _speedGauge(t)),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      Expanded(flex: 5, child: _rpmGauge(t)),
-                      Expanded(flex: 5, child: _speedGauge(t)),
-                    ],
-                  );
+        child: _racing ? _buildFerrari(t) : _buildBmw(t),
+      ),
+    );
+  }
 
-            return Column(
-              children: [
-                if (_racing) ...[
-                  const SizedBox(height: 8),
-                  _ShiftLights(
-                    rpm: _rpm.value,
-                    redline: t.redlineRpm,
-                    maxRpm: t.maxRpm,
+  /// BMW-style: equal dual gauges, chrome bezels, center info bridge.
+  Widget _buildBmw(DashTelemetry t) {
+    final style = const AnalogGaugeStyle(theme: AnalogGaugeTheme.bmw);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= constraints.maxHeight * 0.85;
+        final gauges = [
+          Expanded(
+            child: _Gauge(
+              child: CustomPaint(
+                painter: AnalogGaugePainter(
+                  value: _rpm.value,
+                  min: 0,
+                  max: t.maxRpm,
+                  majorTickEvery: (t.maxRpm / 8).round().clamp(500, 2000),
+                  labelBuilder: (v) => (v / 1000).round().toString(),
+                  redlineFrom: t.redlineRpm,
+                  title: 'RPM',
+                  unit: '×1000/min',
+                  style: style,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _Gauge(
+              child: CustomPaint(
+                painter: AnalogGaugePainter(
+                  value: _speed.value,
+                  min: 0,
+                  max: 260,
+                  majorTickEvery: 20,
+                  title: 'km/h',
+                  style: style,
+                  centerReadout: _speed.value.round().toString(),
+                  centerReadoutUnit: 'DIGITAL',
+                ),
+              ),
+            ),
+          ),
+        ];
+
+        return Column(
+          children: [
+            const SizedBox(height: 8),
+            Expanded(
+              child: wide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        gauges[0],
+                        _BmwCenterBridge(
+                          telemetry: t,
+                          speed: _speed.value,
+                          rpm: _rpm.value,
+                        ),
+                        gauges[1],
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        Expanded(
+                          flex: 5,
+                          child: Row(children: gauges),
+                        ),
+                        _BmwCenterBridge(
+                          telemetry: t,
+                          speed: _speed.value,
+                          rpm: _rpm.value,
+                          horizontal: true,
+                        ),
+                      ],
+                    ),
+            ),
+            _BmwFooter(telemetry: t),
+            const SizedBox(height: 10),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Ferrari-style: dominant tach, yellow ticks, digital speed, shift LEDs.
+  Widget _buildFerrari(DashTelemetry t) {
+    final style = const AnalogGaugeStyle(theme: AnalogGaugeTheme.ferrari);
+    final gearText = t.gearNumber != null ? '${t.gearNumber}' : t.gear.label;
+
+    return Column(
+      children: [
+        const SizedBox(height: 6),
+        _FerrariShiftLights(
+          rpm: _rpm.value,
+          redline: t.redlineRpm,
+          maxRpm: t.maxRpm,
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final side = math.min(
+                constraints.maxWidth * 0.92,
+                constraints.maxHeight * 0.95,
+              );
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: side,
+                    height: side,
+                    child: CustomPaint(
+                      painter: AnalogGaugePainter(
+                        value: _rpm.value,
+                        min: 0,
+                        max: t.maxRpm,
+                        majorTickEvery:
+                            (t.maxRpm / 8).round().clamp(500, 2000),
+                        labelBuilder: (v) => (v / 1000).round().toString(),
+                        redlineFrom: t.redlineRpm,
+                        title: 'FERRARI',
+                        unit: '×1000 rpm',
+                        style: style,
+                      ),
+                    ),
+                  ),
+                  // Digital speed + gear overlay in lower half of tach
+                  Positioned(
+                    bottom: constraints.maxHeight * 0.14,
+                    child: Column(
+                      children: [
+                        Text(
+                          _speed.value.round().toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 42,
+                            fontWeight: FontWeight.w300,
+                            height: 1,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        Text(
+                          'km/h',
+                          style: TextStyle(
+                            color: const Color(0xFFFFD54F).withValues(alpha: 0.8),
+                            fontSize: 11,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          gearText,
+                          style: const TextStyle(
+                            color: Color(0xFFFF1744),
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                            shadows: [
+                              Shadow(
+                                color: Color(0x88FF1744),
+                                blurRadius: 12,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-                Expanded(child: gauges),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: _FooterInfo(
-                    telemetry: t,
-                    racing: _racing,
-                    speed: _speed.value,
-                    rpm: _rpm.value,
-                  ),
-                ),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
-      ),
+        _FerrariFooter(telemetry: t, rpm: _rpm.value),
+        const SizedBox(height: 10),
+      ],
     );
   }
+}
 
-  Widget _rpmGauge(DashTelemetry t) {
+class _Gauge extends StatelessWidget {
+  const _Gauge({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(12),
-      child: CustomPaint(
-        painter: AnalogGaugePainter(
-          value: _rpm.value,
-          min: 0,
-          max: t.maxRpm,
-          majorTickEvery: (t.maxRpm / 8).round().clamp(500, 2000),
-          labelBuilder: (v) => (v / 1000).toStringAsFixed(0),
-          redlineFrom: t.redlineRpm,
-          title: 'RPM',
-          unit: 'x1000',
-          style: _gaugeStyle,
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: AspectRatio(aspectRatio: 1, child: child),
     );
   }
+}
 
-  Widget _speedGauge(DashTelemetry t) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: CustomPaint(
-        painter: AnalogGaugePainter(
-          value: _speed.value,
-          min: 0,
-          max: 260,
-          majorTickEvery: 20,
-          title: 'SPEED',
-          unit: 'km/h',
-          style: _gaugeStyle,
+class _ClusterHoodPainter extends CustomPainter {
+  _ClusterHoodPainter({
+    required this.racing,
+    required this.redPulse,
+    required this.showWeather,
+  });
+
+  final bool racing;
+  final double redPulse;
+  final bool showWeather;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (showWeather) {
+      // Light scrim so gauges stay readable over animated weather.
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()..color = Colors.black.withValues(alpha: 0.28),
+      );
+    } else {
+      final base = racing ? const Color(0xFF050505) : const Color(0xFF0B0C10);
+      canvas.drawRect(Offset.zero & size, Paint()..color = base);
+    }
+
+    // Binnacle / hood shadow like a real cluster cove
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width / 2, 0),
+          Offset(size.width / 2, size.height * 0.35),
+          [
+            Colors.black.withValues(alpha: showWeather ? 0.45 : 0.75),
+            Colors.transparent,
+          ],
         ),
+    );
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(size.width / 2, size.height * 0.48),
+          size.shortestSide * 0.75,
+          [
+            (racing ? const Color(0xFF1A0A0A) : const Color(0xFF152033))
+                .withValues(alpha: showWeather ? 0.18 : 0.35),
+            Colors.transparent,
+          ],
+        ),
+    );
+
+    if (redPulse > 0) {
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..color = const Color(0xFFFF0000).withValues(alpha: redPulse * 0.35),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClusterHoodPainter oldDelegate) {
+    return oldDelegate.racing != racing ||
+        oldDelegate.redPulse != redPulse ||
+        oldDelegate.showWeather != showWeather;
+  }
+}
+
+class _BmwCenterBridge extends StatelessWidget {
+  const _BmwCenterBridge({
+    required this.telemetry,
+    required this.speed,
+    required this.rpm,
+    this.horizontal = false,
+  });
+
+  final DashTelemetry telemetry;
+  final double speed;
+  final double rpm;
+  final bool horizontal;
+
+  @override
+  Widget build(BuildContext context) {
+    final gear = telemetry.gear.label;
+    final content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          gear,
+          style: const TextStyle(
+            color: Color(0xFF90CAF9),
+            fontSize: 40,
+            fontWeight: FontWeight.w300,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${speed.round()}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w400,
+            height: 1,
+          ),
+        ),
+        Text(
+          'km/h',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.45),
+            fontSize: 10,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          '${(rpm / 1000).toStringAsFixed(1)}k',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.55),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+
+    if (horizontal) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: content,
+      );
+    }
+
+    return SizedBox(
+      width: 88,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.symmetric(
+            vertical: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+        ),
+        child: content,
       ),
     );
   }
 }
 
-class _ShiftLights extends StatelessWidget {
-  const _ShiftLights({
+class _BmwFooter extends StatelessWidget {
+  const _BmwFooter({required this.telemetry});
+
+  final DashTelemetry telemetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Row(
+        children: [
+          _AuxGauge(
+            label: 'E',
+            endLabel: 'F',
+            value: telemetry.fuelPercent / 100,
+            color: const Color(0xFFFFB74D),
+            icon: Icons.local_gas_station,
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  'ODO ${telemetry.odometerKm.toStringAsFixed(1)} km',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 11,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'TRIP ${telemetry.tripKm.toStringAsFixed(1)}  ·  ${telemetry.outsideTempC.round()}°C',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _AuxGauge(
+            label: 'C',
+            endLabel: 'H',
+            value: (telemetry.coolantTempC / 120).clamp(0.0, 1.0),
+            color: const Color(0xFF64B5F6),
+            icon: Icons.thermostat,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FerrariShiftLights extends StatelessWidget {
+  const _FerrariShiftLights({
     required this.rpm,
     required this.redline,
     required this.maxRpm,
@@ -201,8 +501,8 @@ class _ShiftLights extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const count = 8;
-    final start = redline * 0.75;
+    const count = 10;
+    final start = redline * 0.72;
     final lit = rpm <= start
         ? 0
         : (((rpm - start) / (maxRpm - start)) * count).ceil().clamp(0, count);
@@ -211,20 +511,25 @@ class _ShiftLights extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(count, (i) {
         final active = i < lit;
-        final color = i < count - 2
-            ? const Color(0xFF69F0AE)
-            : i < count - 1
-                ? const Color(0xFFFFF176)
+        final color = i < 5
+            ? const Color(0xFF00E676)
+            : i < 8
+                ? const Color(0xFFFFD54F)
                 : const Color(0xFFFF1744);
         return Container(
-          width: 18,
-          height: 10,
-          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: 14,
+          height: 8,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: active ? color : color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(2),
+            color: active ? color : color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(1),
             boxShadow: active
-                ? [BoxShadow(color: color.withValues(alpha: 0.7), blurRadius: 8)]
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.85),
+                      blurRadius: 6,
+                    ),
+                  ]
                 : null,
           ),
         );
@@ -233,102 +538,107 @@ class _ShiftLights extends StatelessWidget {
   }
 }
 
-class _FooterInfo extends StatelessWidget {
-  const _FooterInfo({
+class _FerrariFooter extends StatelessWidget {
+  const _FerrariFooter({
     required this.telemetry,
-    required this.racing,
-    required this.speed,
     required this.rpm,
   });
 
   final DashTelemetry telemetry;
-  final bool racing;
-  final double speed;
   final double rpm;
 
   @override
   Widget build(BuildContext context) {
-    final gearText = telemetry.gearNumber != null
-        ? '${telemetry.gearNumber}'
-        : telemetry.gear.label;
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _MiniArc(
-              label: 'FUEL',
-              value: telemetry.fuelPercent / 100,
-              color: const Color(0xFFFFB74D),
-            ),
-            Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          _AuxGauge(
+            label: 'E',
+            endLabel: 'F',
+            value: telemetry.fuelPercent / 100,
+            color: const Color(0xFFFFD54F),
+            icon: Icons.local_gas_station,
+          ),
+          Expanded(
+            child: Column(
               children: [
                 Text(
-                  racing ? gearText : telemetry.gear.label,
-                  style: TextStyle(
-                    color: racing
-                        ? const Color(0xFFFF1744)
-                        : const Color(0xFF4FC3F7),
-                    fontSize: racing ? 42 : 32,
-                    fontWeight: FontWeight.w700,
+                  '${(rpm / 1000).toStringAsFixed(2)} ×1000',
+                  style: const TextStyle(
+                    color: Color(0xFFFFD54F),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${speed.round()} km/h · ${(rpm / 1000).toStringAsFixed(1)}k',
+                  'ODO ${telemetry.odometerKm.toStringAsFixed(0)}  ·  WATER ${telemetry.coolantTempC.round()}°',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.65),
-                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.45),
+                    fontSize: 10,
                   ),
                 ),
               ],
             ),
-            _MiniArc(
-              label: 'TEMP',
-              value: (telemetry.coolantTempC / 120).clamp(0.0, 1.0),
-              color: const Color(0xFF4FC3F7),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'ODO ${telemetry.odometerKm.toStringAsFixed(1)}  ·  TRIP ${telemetry.tripKm.toStringAsFixed(1)}',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.55),
-            fontSize: 12,
-            letterSpacing: 0.8,
           ),
-        ),
-      ],
+          _AuxGauge(
+            label: 'C',
+            endLabel: 'H',
+            value: (telemetry.coolantTempC / 120).clamp(0.0, 1.0),
+            color: const Color(0xFFFF5252),
+            icon: Icons.thermostat,
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _MiniArc extends StatelessWidget {
-  const _MiniArc({
+class _AuxGauge extends StatelessWidget {
+  const _AuxGauge({
     required this.label,
+    required this.endLabel,
     required this.value,
     required this.color,
+    required this.icon,
   });
 
   final String label;
+  final String endLabel;
   final double value;
   final Color color;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
-      height: 64,
+      width: 72,
+      height: 40,
       child: CustomPaint(
-        painter: _MiniArcPainter(value: value, color: color),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 10,
-            ),
+        painter: _AuxArcPainter(value: value, color: color),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 9,
+                ),
+              ),
+              Icon(icon, size: 12, color: color.withValues(alpha: 0.8)),
+              Text(
+                endLabel,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 9,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -336,33 +646,42 @@ class _MiniArc extends StatelessWidget {
   }
 }
 
-class _MiniArcPainter extends CustomPainter {
-  _MiniArcPainter({required this.value, required this.color});
+class _AuxArcPainter extends CustomPainter {
+  _AuxArcPainter({required this.value, required this.color});
 
   final double value;
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final rect = Rect.fromCircle(center: center, radius: size.width * 0.42);
-    final bg = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..color = Colors.white12;
-    final fg = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round
-      ..color = color;
-    const start = 2.4;
-    const sweep = 4.5;
-    canvas.drawArc(rect, start, sweep, false, bg);
-    canvas.drawArc(rect, start, sweep * value.clamp(0.0, 1.0), false, fg);
+    final rect = Rect.fromLTWH(4, 4, size.width - 8, size.height * 1.4);
+    const start = math.pi * 1.15;
+    const sweep = math.pi * 0.7;
+    canvas.drawArc(
+      rect,
+      start,
+      sweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = Colors.white12,
+    );
+    canvas.drawArc(
+      rect,
+      start,
+      sweep * value.clamp(0.0, 1.0),
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..color = color,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _MiniArcPainter oldDelegate) {
+  bool shouldRepaint(covariant _AuxArcPainter oldDelegate) {
     return oldDelegate.value != value || oldDelegate.color != color;
   }
 }

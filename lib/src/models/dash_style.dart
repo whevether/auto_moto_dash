@@ -33,7 +33,7 @@ extension DashStyleX on DashStyle {
         DashStyle.hud => 'HUD',
         DashStyle.performance => '高性能',
         DashStyle.pulseBreath => '脉冲呼吸',
-        DashStyle.classic => '传统汽车',
-        DashStyle.racing => '赛车',
+        DashStyle.classic => '宝马风格',
+        DashStyle.racing => '法拉利风格',
       };
 }
