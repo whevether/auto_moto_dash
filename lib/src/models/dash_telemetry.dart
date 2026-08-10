@@ -48,17 +48,40 @@ class DashTelemetry {
     this.tirePressures = const TirePressures(),
   });
 
+  /// Vehicle speed in km/h.
   final double speedKmh;
+
+  /// Engine / motor RPM.
   final double rpm;
+
+  /// Gauge full-scale RPM.
   final double maxRpm;
+
+  /// Redline start RPM (racing / shift lights).
   final double redlineRpm;
+
+  /// Traction battery SOC 0–100.
   final double batteryPercent;
+
+  /// Fuel level 0–100 (analog themes).
   final double fuelPercent;
+
+  /// Coolant temperature in °C.
   final double coolantTempC;
+
+  /// Estimated remaining range in km.
   final double rangeKm;
+
+  /// Total odometer in km.
   final double odometerKm;
+
+  /// Trip meter in km.
   final double tripKm;
+
+  /// Outside ambient temperature in °C.
   final double outsideTempC;
+
+  /// Automatic PRND position.
   final Gear gear;
 
   /// Manual gear number (1–6). When set, racing cluster prefers this over [gear].

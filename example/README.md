@@ -1,17 +1,24 @@
-# example
+# auto_moto_dash 示例 / Example
 
-A new Flutter project.
+**中文：** 演示包内 `AutoMotoDashboard` 与 `DriveSimulation` 的交互用法。  
+**English:** Interactive demo of `AutoMotoDashboard` and `DriveSimulation`.
 
-## Getting Started
+## 运行 / Run
 
-This project is a starting point for a Flutter application.
+```bash
+cd example
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+## 操作 / Controls
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- **按住仪表 / Hold cluster：** 加速；松手后滑行减速 / Accelerate; release to coast
+- **↑ / ↓：** 加速 / 制动 / Accel / brake
+- **← / →** 或点击 **P / R / N / D**：**换档**（行驶中过快时无法挂入 P / R） / **Shift** (P / R blocked when moving too fast)
+- **右下角控制面板 / Control panel：** 主题、天气、粒子、车型、彩虹速度、档位等 / Theme, weather, particles, vehicle type, rainbow speed, gear, …
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 说明 / Notes
+
+**中文：** 遥测由 `DriveSimulation` 每帧 `tick` 产生，再组装为 `DashTelemetry` 传入仪表。换档走 `trySetGear`，被拒绝时界面档位不会跳变。
+
+**English:** Telemetry is produced each frame by `DriveSimulation.tick`, then mapped into `DashTelemetry`. Shifts use `trySetGear`; rejected shifts do not change the on-screen gear.

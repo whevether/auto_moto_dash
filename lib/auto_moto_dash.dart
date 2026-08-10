@@ -1,4 +1,7 @@
 /// Motorcycle / car dashboard Flutter package.
+///
+/// Main entry: [AutoMotoDashboard]. Also exports telemetry models,
+/// [DashStyle], [WeatherType], [ParticleEffect], and [DriveSimulation].
 library;
 
 export 'src/models/dash_style.dart';

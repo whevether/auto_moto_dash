@@ -1,5 +1,7 @@
 name: auto_moto_dash
-description: Motorcycle/car dashboard Flutter package with HUD, analog gauges, and weather backgrounds.
+description: >-
+  Motorcycle/car dashboard Flutter package (EN/中文 docs): digital HUD,
+  tech analog clusters, weather backgrounds, and inertial particle effects.
 version: 0.1.0
 homepage:
 

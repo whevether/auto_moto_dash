@@ -6,11 +6,11 @@ enum ParticleEffect {
   /// Black-hole / wormhole transit.
   blackHole,
 
-  /// Dense star tunnel.
+  /// Sparse star tunnel.
   starTunnel,
 
-  /// Perspective cyber grid rush.
-  cyberGrid,
+  /// Perspective road / race-track rush.
+  roadTrack,
 
   /// Colored ion sparks and short arcs.
   ionStorm,
@@ -21,7 +21,7 @@ extension ParticleEffectX on ParticleEffect {
         ParticleEffect.windRush => '风驰',
         ParticleEffect.blackHole => '黑洞穿越',
         ParticleEffect.starTunnel => '星门隧道',
-        ParticleEffect.cyberGrid => '科技网格',
+        ParticleEffect.roadTrack => '道路赛道',
         ParticleEffect.ionStorm => '离子风暴',
       };
 }

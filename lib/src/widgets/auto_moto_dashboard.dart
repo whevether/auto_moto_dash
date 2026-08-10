@@ -13,6 +13,9 @@ import 'particle/particle_layer.dart';
 
 /// Motorcycle / car dashboard with digital HUD or analog cluster styles,
 /// and optional weather / particle background animation.
+///
+/// Layer order bottom → top: [backgroundColor] → [weather] → [particleEffect]
+/// → cluster body. Pass `null` for [weather] / [particleEffect] to disable.
 class AutoMotoDashboard extends StatelessWidget {
   const AutoMotoDashboard({
     super.key,
@@ -30,20 +33,40 @@ class AutoMotoDashboard extends StatelessWidget {
     this.onGearPointerDown,
   });
 
+  /// Host-provided speed, RPM, gear, battery, etc.
   final DashTelemetry telemetry;
+
+  /// Mutually exclusive visual theme.
   final DashStyle style;
+
+  /// Animated weather; `null` disables the weather layer.
   final WeatherType? weather;
 
   /// Motion particle effect; pass `null` to disable.
   final ParticleEffect? particleEffect;
+
+  /// Car vs motorcycle silhouette (digital themes).
   final VehicleType vehicleType;
+
+  /// Speed (km/h) at which particle flow is considered “full”.
   final double lightSpeedThresholdKmh;
+
+  /// Whether to show the P/R/N/D strip.
   final bool showGearSelector;
+
+  /// Whether to draw the vehicle outline (digital themes).
   final bool showVehicleOutline;
+
+  /// Rainbow-colored speed digits when true.
   final bool rainbowSpeed;
+
+  /// Bottom fill behind weather / particles.
   final Color backgroundColor;
 
+  /// Called when the user taps a gear position.
   final ValueChanged<Gear>? onGearSelected;
+
+  /// Called on gear strip pointer-down (e.g. to claim gestures).
   final VoidCallback? onGearPointerDown;
 
   Color get _particleAccent => switch (style) {
