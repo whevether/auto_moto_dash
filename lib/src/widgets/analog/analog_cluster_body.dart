@@ -9,6 +9,7 @@ import '../../models/dash_style.dart';
 import '../../models/dash_telemetry.dart';
 import '../../models/gear.dart';
 import '../../painters/analog_gauge_painter.dart';
+import '../shared/gear_selector.dart';
 
 class AnalogClusterBody extends StatefulWidget {
   const AnalogClusterBody({
@@ -16,6 +17,8 @@ class AnalogClusterBody extends StatefulWidget {
     required this.telemetry,
     required this.style,
     this.dimForWeather = false,
+    this.onGearSelected,
+    this.onGearPointerDown,
   });
 
   final DashTelemetry telemetry;
@@ -23,6 +26,8 @@ class AnalogClusterBody extends StatefulWidget {
 
   /// When true, cluster hood stays translucent so weather shows through.
   final bool dimForWeather;
+  final ValueChanged<Gear>? onGearSelected;
+  final VoidCallback? onGearPointerDown;
 
   @override
   State<AnalogClusterBody> createState() => _AnalogClusterBodyState();
@@ -114,6 +119,7 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
                   title: 'RPM',
                   unit: '×1000/min',
                   style: style,
+                  pulsePhase: _phase * 0.35,
                 ),
               ),
             ),
@@ -129,7 +135,8 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
                   title: 'km/h',
                   style: style,
                   centerReadout: _speed.value.round().toString(),
-                  centerReadoutUnit: 'DIGITAL',
+                  centerReadoutUnit: 'HUD',
+                  pulsePhase: _phase * 0.35,
                 ),
               ),
             ),
@@ -168,6 +175,15 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
                       ],
                     ),
             ),
+            if (widget.onGearSelected != null) ...[
+              GearSelector(
+                gear: t.gear,
+                accent: const Color(0xFF00E5FF),
+                onGearSelected: widget.onGearSelected,
+                onGearPointerDown: widget.onGearPointerDown,
+              ),
+              const SizedBox(height: 4),
+            ],
             _BmwFooter(telemetry: t),
             const SizedBox(height: 10),
           ],
@@ -212,9 +228,10 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
                             (t.maxRpm / 8).round().clamp(500, 2000),
                         labelBuilder: (v) => (v / 1000).round().toString(),
                         redlineFrom: t.redlineRpm,
-                        title: 'FERRARI',
+                        title: 'RACE',
                         unit: '×1000 rpm',
                         style: style,
+                        pulsePhase: _phase * (0.4 + (_rpm.value / t.maxRpm) * 0.8),
                       ),
                     ),
                   ),
@@ -227,18 +244,24 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
                           _speed.value.round().toString(),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 42,
-                            fontWeight: FontWeight.w300,
+                            fontSize: 44,
+                            fontWeight: FontWeight.w200,
                             height: 1,
                             letterSpacing: -1,
+                            shadows: [
+                              Shadow(color: Color(0x66FFFFFF), blurRadius: 18),
+                            ],
                           ),
                         ),
                         Text(
                           'km/h',
                           style: TextStyle(
-                            color: const Color(0xFFFFD54F).withValues(alpha: 0.8),
+                            color: const Color(0xFFFFD54F).withValues(alpha: 0.9),
                             fontSize: 11,
-                            letterSpacing: 2,
+                            letterSpacing: 3,
+                            shadows: const [
+                              Shadow(color: Color(0x66FFD54F), blurRadius: 8),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -246,13 +269,13 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
                           gearText,
                           style: const TextStyle(
                             color: Color(0xFFFF1744),
-                            fontSize: 36,
+                            fontSize: 38,
                             fontWeight: FontWeight.w800,
                             height: 1,
                             shadows: [
                               Shadow(
-                                color: Color(0x88FF1744),
-                                blurRadius: 12,
+                                color: Color(0xCCFF1744),
+                                blurRadius: 18,
                               ),
                             ],
                           ),
@@ -265,6 +288,15 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
             },
           ),
         ),
+        if (widget.onGearSelected != null) ...[
+          GearSelector(
+            gear: t.gear,
+            accent: const Color(0xFFFFD54F),
+            onGearSelected: widget.onGearSelected,
+            onGearPointerDown: widget.onGearPointerDown,
+          ),
+          const SizedBox(height: 4),
+        ],
         _FerrariFooter(telemetry: t, rpm: _rpm.value),
         const SizedBox(height: 10),
       ],
@@ -377,10 +409,11 @@ class _BmwCenterBridge extends StatelessWidget {
         Text(
           gear,
           style: const TextStyle(
-            color: Color(0xFF90CAF9),
+            color: Color(0xFF00E5FF),
             fontSize: 40,
             fontWeight: FontWeight.w300,
             height: 1,
+            shadows: [Shadow(color: Color(0x8800E5FF), blurRadius: 14)],
           ),
         ),
         const SizedBox(height: 8),
@@ -396,9 +429,9 @@ class _BmwCenterBridge extends StatelessWidget {
         Text(
           'km/h',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.45),
+            color: const Color(0xFF00E5FF).withValues(alpha: 0.55),
             fontSize: 10,
-            letterSpacing: 1,
+            letterSpacing: 1.5,
           ),
         ),
         const SizedBox(height: 10),
@@ -412,26 +445,27 @@ class _BmwCenterBridge extends StatelessWidget {
       ],
     );
 
+    final card = Container(
+      width: horizontal ? null : 96,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0x990A1520),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x6600E5FF)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x3300E5FF), blurRadius: 16),
+        ],
+      ),
+      child: content,
+    );
+
     if (horizontal) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: content,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 24),
+        child: card,
       );
     }
-
-    return SizedBox(
-      width: 88,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.symmetric(
-            vertical: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
-        ),
-        child: content,
-      ),
-    );
+    return card;
   }
 }
 
@@ -517,17 +551,22 @@ class _FerrariShiftLights extends StatelessWidget {
                 ? const Color(0xFFFFD54F)
                 : const Color(0xFFFF1744);
         return Container(
-          width: 14,
-          height: 8,
+          width: 16,
+          height: 6,
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: active ? color : color.withValues(alpha: 0.12),
+            color: active ? color : color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(1),
+            border: Border.all(
+              color: color.withValues(alpha: active ? 0.9 : 0.25),
+              width: 0.8,
+            ),
             boxShadow: active
                 ? [
                     BoxShadow(
-                      color: color.withValues(alpha: 0.85),
-                      blurRadius: 6,
+                      color: color.withValues(alpha: 0.9),
+                      blurRadius: 10,
+                      spreadRadius: 1,
                     ),
                   ]
                 : null,

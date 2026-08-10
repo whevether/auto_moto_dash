@@ -4,10 +4,10 @@ import 'package:flutter/scheduler.dart';
 import '../../animation/smoothed_value.dart';
 import '../../models/dash_style.dart';
 import '../../models/dash_telemetry.dart';
+import '../../models/gear.dart';
 import '../../models/vehicle_type.dart';
 import '../../painters/neon_polygon_painter.dart';
 import '../../painters/pulse_ring_painter.dart';
-import '../../painters/warp_streaks_painter.dart';
 import '../shared/gear_selector.dart';
 import '../shared/vehicle_outline.dart';
 
@@ -21,6 +21,8 @@ class DigitalHudBody extends StatefulWidget {
     required this.showGearSelector,
     required this.showVehicleOutline,
     this.rainbowSpeed = false,
+    this.onGearSelected,
+    this.onGearPointerDown,
   });
 
   final DashTelemetry telemetry;
@@ -30,6 +32,8 @@ class DigitalHudBody extends StatefulWidget {
   final bool showGearSelector;
   final bool showVehicleOutline;
   final bool rainbowSpeed;
+  final ValueChanged<Gear>? onGearSelected;
+  final VoidCallback? onGearPointerDown;
 
   @override
   State<DigitalHudBody> createState() => _DigitalHudBodyState();
@@ -41,8 +45,6 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
   late final SmoothedValue _speed;
   Duration _last = Duration.zero;
   double _elapsedSec = 0;
-  double _prevSpeed = 0;
-  double _accelNorm = 0;
 
   @override
   void initState() {
@@ -50,7 +52,6 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
     final responsiveness = widget.style == DashStyle.performance ? 18.0 : 10.0;
     _speed = SmoothedValue(widget.telemetry.speedKmh,
         responsiveness: responsiveness);
-    _prevSpeed = widget.telemetry.speedKmh;
     _ticker = createTicker(_onTick)..start();
   }
 
@@ -66,16 +67,8 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
         ? 1 / 60
         : (elapsed - _last).inMicroseconds / 1e6;
     _last = elapsed;
-    final clampedDt = dt.clamp(0.0, 0.05);
     _elapsedSec = elapsed.inMilliseconds / 1000.0;
-    _speed.tick(widget.telemetry.speedKmh, clampedDt);
-    if (clampedDt > 0) {
-      final accelKmhps = (_speed.value - _prevSpeed) / clampedDt;
-      // ~60 km/h/s ≈ full rush boost
-      final target = (accelKmhps / 60).clamp(-0.2, 1.2);
-      _accelNorm += (target - _accelNorm) * (8 * clampedDt).clamp(0.0, 1.0);
-      _prevSpeed = _speed.value;
-    }
+    _speed.tick(widget.telemetry.speedKmh, dt.clamp(0.0, 0.05));
     setState(() {});
   }
 
@@ -115,15 +108,6 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
     return Stack(
       fit: StackFit.expand,
       children: [
-        CustomPaint(
-          painter: WarpStreaksPainter(
-            progress: _elapsedSec,
-            speedNorm: speedNorm,
-            accelNorm: _accelNorm,
-            accent: _accent,
-            streakCount: widget.style == DashStyle.performance ? 110 : 90,
-          ),
-        ),
         if (widget.style == DashStyle.techNeon)
           CustomPaint(
             painter: NeonPolygonPainter(
@@ -206,6 +190,8 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
                   GearSelector(
                     gear: widget.telemetry.gear,
                     accent: _accent,
+                    onGearSelected: widget.onGearSelected,
+                    onGearPointerDown: widget.onGearPointerDown,
                   ),
                   const SizedBox(height: 24),
                 ],

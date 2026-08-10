@@ -43,6 +43,7 @@ class _DashDemoPageState extends State<DashDemoPage>
 
   DashStyle _style = DashStyle.hud;
   WeatherType? _weather = WeatherType.cloudy;
+  ParticleEffect? _particle = ParticleEffect.windRush;
   VehicleType _vehicleType = VehicleType.car;
   bool _panelOpen = false;
   bool _rainbow = false;
@@ -51,11 +52,13 @@ class _DashDemoPageState extends State<DashDemoPage>
   bool _pointerAccelerating = false;
   bool _keyAccelerating = false;
   bool _keyBraking = false;
+  bool _suppressAccel = false;
 
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
 
-  bool get _accelerating => _pointerAccelerating || _keyAccelerating;
+  bool get _accelerating =>
+      !_suppressAccel && (_pointerAccelerating || _keyAccelerating);
 
   DashTelemetry get _telemetry => DashTelemetry(
         speedKmh: _drive.speedKmh,
@@ -191,20 +194,30 @@ class _DashDemoPageState extends State<DashDemoPage>
             Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: (_) {
-                if (_panelOpen) return;
+                if (_panelOpen || _suppressAccel) return;
                 setState(() => _pointerAccelerating = true);
               },
-              onPointerUp: (_) =>
-                  setState(() => _pointerAccelerating = false),
-              onPointerCancel: (_) =>
-                  setState(() => _pointerAccelerating = false),
+              onPointerUp: (_) => setState(() {
+                _pointerAccelerating = false;
+                _suppressAccel = false;
+              }),
+              onPointerCancel: (_) => setState(() {
+                _pointerAccelerating = false;
+                _suppressAccel = false;
+              }),
               child: AutoMotoDashboard(
                 telemetry: _telemetry,
                 style: _style,
                 weather: _weather,
+                particleEffect: _particle,
                 vehicleType: _vehicleType,
                 lightSpeedThresholdKmh: 80,
                 rainbowSpeed: _rainbow,
+                onGearSelected: _tryGear,
+                onGearPointerDown: () {
+                  _suppressAccel = true;
+                  _pointerAccelerating = false;
+                },
               ),
             ),
             if (_panelOpen) ...[
@@ -222,6 +235,7 @@ class _DashDemoPageState extends State<DashDemoPage>
                 child: _ControlPanel(
                   style: _style,
                   weather: _weather,
+                  particle: _particle,
                   vehicleType: _vehicleType,
                   speed: _drive.speedKmh,
                   rpm: _drive.rpm,
@@ -231,6 +245,7 @@ class _DashDemoPageState extends State<DashDemoPage>
                   onClose: _closePanel,
                   onStyle: (v) => setState(() => _style = v),
                   onWeather: (v) => setState(() => _weather = v),
+                  onParticle: (v) => setState(() => _particle = v),
                   onVehicle: (v) => setState(() => _vehicleType = v),
                   onGear: _tryGear,
                   onRainbow: (v) => setState(() => _rainbow = v),
@@ -259,7 +274,7 @@ class _DashDemoPageState extends State<DashDemoPage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '按住加速 · ↑↓加减速 · ←→换档 · ${_drive.speedKmh.round()} km/h · ${_drive.gear.label}',
+                        '按住加速 · 点击P/R/N/D或←→换档 · ${_drive.speedKmh.round()} km/h · ${_drive.gear.label}',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.45),
                           fontSize: 11,
@@ -317,6 +332,7 @@ class _ControlPanel extends StatelessWidget {
   const _ControlPanel({
     required this.style,
     required this.weather,
+    required this.particle,
     required this.vehicleType,
     required this.speed,
     required this.rpm,
@@ -326,6 +342,7 @@ class _ControlPanel extends StatelessWidget {
     required this.onClose,
     required this.onStyle,
     required this.onWeather,
+    required this.onParticle,
     required this.onVehicle,
     required this.onGear,
     required this.onRainbow,
@@ -333,6 +350,7 @@ class _ControlPanel extends StatelessWidget {
 
   final DashStyle style;
   final WeatherType? weather;
+  final ParticleEffect? particle;
   final VehicleType vehicleType;
   final double speed;
   final double rpm;
@@ -342,6 +360,7 @@ class _ControlPanel extends StatelessWidget {
   final VoidCallback onClose;
   final ValueChanged<DashStyle> onStyle;
   final ValueChanged<WeatherType?> onWeather;
+  final ValueChanged<ParticleEffect?> onParticle;
   final ValueChanged<VehicleType> onVehicle;
   final ValueChanged<Gear> onGear;
   final ValueChanged<bool> onRainbow;
@@ -410,6 +429,27 @@ class _ControlPanel extends StatelessWidget {
                     onSelected: (_) => onStyle(s),
                   );
                 }).toList(),
+              ),
+              const SizedBox(height: 16),
+              const Text('粒子', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('无'),
+                    selected: particle == null,
+                    onSelected: (_) => onParticle(null),
+                  ),
+                  ...ParticleEffect.values.map((p) {
+                    return ChoiceChip(
+                      label: Text(p.label),
+                      selected: particle == p,
+                      onSelected: (_) => onParticle(p),
+                    );
+                  }),
+                ],
               ),
               const SizedBox(height: 16),
               const Text('天气', style: TextStyle(fontWeight: FontWeight.w600)),

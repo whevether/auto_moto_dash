@@ -4,10 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 enum AnalogGaugeTheme {
-  /// BMW-inspired: chrome bezel, white ticks, red needle, black face.
+  /// BMW-inspired tech HUD: cyan neon bezel, ice ticks, red needle.
   bmw,
 
-  /// Ferrari-inspired: yellow numerals, black face, red needle & redline.
+  /// Ferrari-inspired cyber race: yellow numerals, red energy ring.
   ferrari,
 }
 
@@ -23,30 +23,35 @@ class AnalogGaugeStyle {
   final double sweepAngle;
 
   Color get faceColor => switch (theme) {
-        AnalogGaugeTheme.bmw => const Color(0xFF0A0B0D),
-        AnalogGaugeTheme.ferrari => const Color(0xFF080808),
+        AnalogGaugeTheme.bmw => const Color(0xFF050810),
+        AnalogGaugeTheme.ferrari => const Color(0xFF080406),
       };
 
   Color get tickColor => switch (theme) {
-        AnalogGaugeTheme.bmw => const Color(0xFFF2F2F2),
+        AnalogGaugeTheme.bmw => const Color(0xFFB3E5FC),
         AnalogGaugeTheme.ferrari => const Color(0xFFFFD54F),
       };
 
   Color get labelColor => switch (theme) {
-        AnalogGaugeTheme.bmw => const Color(0xFFECECEC),
+        AnalogGaugeTheme.bmw => const Color(0xFFE1F5FE),
         AnalogGaugeTheme.ferrari => const Color(0xFFFFC107),
       };
 
   Color get needleColor => switch (theme) {
-        AnalogGaugeTheme.bmw => const Color(0xFFE53935),
+        AnalogGaugeTheme.bmw => const Color(0xFFFF5252),
         AnalogGaugeTheme.ferrari => const Color(0xFFFF1744),
       };
 
-  Color get redlineColor => const Color(0xFFD32F2F);
+  Color get redlineColor => const Color(0xFFFF1744);
 
   Color get accentColor => switch (theme) {
-        AnalogGaugeTheme.bmw => const Color(0xFF90CAF9),
+        AnalogGaugeTheme.bmw => const Color(0xFF00E5FF),
         AnalogGaugeTheme.ferrari => const Color(0xFFFFD54F),
+      };
+
+  Color get neonRing => switch (theme) {
+        AnalogGaugeTheme.bmw => const Color(0xFF00E5FF),
+        AnalogGaugeTheme.ferrari => const Color(0xFFFF1744),
       };
 }
 
@@ -65,6 +70,7 @@ class AnalogGaugePainter extends CustomPainter {
     this.unit,
     this.centerReadout,
     this.centerReadoutUnit,
+    this.pulsePhase = 0,
   });
 
   final double value;
@@ -79,6 +85,7 @@ class AnalogGaugePainter extends CustomPainter {
   final String? unit;
   final String? centerReadout;
   final String? centerReadoutUnit;
+  final double pulsePhase;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -87,7 +94,7 @@ class AnalogGaugePainter extends CustomPainter {
     final ferrari = style.theme == AnalogGaugeTheme.ferrari;
 
     _paintBezel(canvas, center, radius, ferrari);
-    _paintFace(canvas, center, radius);
+    _paintFace(canvas, center, radius, ferrari);
     _paintRedline(canvas, center, radius);
     _paintTicksAndLabels(canvas, center, radius, ferrari);
     _paintCenterText(canvas, center, radius, ferrari);
@@ -97,7 +104,6 @@ class AnalogGaugePainter extends CustomPainter {
   }
 
   void _paintBezel(Canvas canvas, Offset c, double r, bool ferrari) {
-    // Outer dark housing
     canvas.drawCircle(
       c,
       r,
@@ -106,68 +112,49 @@ class AnalogGaugePainter extends CustomPainter {
           c,
           r,
           [
-            const Color(0xFF2A2A2E),
-            const Color(0xFF121214),
-            const Color(0xFF050506),
+            const Color(0xFF1A2030),
+            const Color(0xFF0A0C12),
+            const Color(0xFF030406),
           ],
-          const [0.75, 0.9, 1.0],
+          const [0.72, 0.9, 1.0],
         ),
     );
 
-    // Chrome / carbon ring
-    final ringR = r * 0.935;
-    final ringW = r * 0.055;
-    if (ferrari) {
-      canvas.drawCircle(
-        c,
-        ringR,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ringW
-          ..color = const Color(0xFF1A1A1A),
-      );
-      canvas.drawCircle(
-        c,
-        ringR,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ringW * 0.35
-          ..color = const Color(0xFF3A3A3A),
-      );
-    } else {
-      canvas.drawCircle(
-        c,
-        ringR,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ringW
-          ..shader = ui.Gradient.linear(
-            Offset(c.dx - ringR, c.dy - ringR),
-            Offset(c.dx + ringR, c.dy + ringR),
-            const [
-              Color(0xFF9E9E9E),
-              Color(0xFFE8E8E8),
-              Color(0xFF757575),
-              Color(0xFFBDBDBD),
-              Color(0xFF616161),
-            ],
-            const [0.0, 0.25, 0.5, 0.75, 1.0],
-          ),
-      );
-    }
+    final ringR = r * 0.93;
+    final breath = 0.55 + 0.45 * (0.5 + 0.5 * math.sin(pulsePhase * math.pi * 2));
+    final neon = style.neonRing;
 
-    // Inner black lip
+    // Outer glow
+    canvas.drawCircle(
+      c,
+      ringR,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.07
+        ..color = neon.withValues(alpha: (ferrari ? 0.35 : 0.28) * breath)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.06),
+    );
+    // Sharp neon ring
+    canvas.drawCircle(
+      c,
+      ringR,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.018
+        ..color = neon.withValues(alpha: 0.85 * breath),
+    );
+    // Inner tech lip
     canvas.drawCircle(
       c,
       r * 0.895,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = r * 0.018
-        ..color = const Color(0xFF0D0D0F),
+        ..strokeWidth = r * 0.01
+        ..color = neon.withValues(alpha: 0.35),
     );
   }
 
-  void _paintFace(Canvas canvas, Offset c, double r) {
+  void _paintFace(Canvas canvas, Offset c, double r, bool ferrari) {
     canvas.drawCircle(
       c,
       r * 0.88,
@@ -176,7 +163,7 @@ class AnalogGaugePainter extends CustomPainter {
           c.translate(-r * 0.12, -r * 0.15),
           r * 1.1,
           [
-            Color.lerp(style.faceColor, Colors.white, 0.06)!,
+            Color.lerp(style.faceColor, style.accentColor, 0.08)!,
             style.faceColor,
             Colors.black,
           ],
@@ -184,15 +171,49 @@ class AnalogGaugePainter extends CustomPainter {
         ),
     );
 
-    // Subtle inner track ring
+    // Segmented electronic track
     canvas.drawCircle(
       c,
       r * 0.82,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = style.tickColor.withValues(alpha: 0.12),
+        ..strokeWidth = 1.2
+        ..color = style.accentColor.withValues(alpha: 0.22),
     );
+
+    // Scan arc (tech HUD)
+    final scan = (pulsePhase % 1.0) * style.sweepAngle;
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r * 0.78),
+      style.startAngle + scan,
+      0.35,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..color = style.accentColor.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    if (ferrari) {
+      // Fine cyber grid inside face
+      final grid = Paint()
+        ..color = style.accentColor.withValues(alpha: 0.04)
+        ..strokeWidth = 0.8;
+      for (var i = -4; i <= 4; i++) {
+        canvas.drawLine(
+          Offset(c.dx + i * r * 0.12, c.dy - r * 0.55),
+          Offset(c.dx + i * r * 0.12, c.dy + r * 0.55),
+          grid,
+        );
+        canvas.drawLine(
+          Offset(c.dx - r * 0.55, c.dy + i * r * 0.12),
+          Offset(c.dx + r * 0.55, c.dy + i * r * 0.12),
+          grid,
+        );
+      }
+    }
   }
 
   void _paintRedline(Canvas canvas, Offset c, double r) {
@@ -210,9 +231,21 @@ class AnalogGaugePainter extends CustomPainter {
       false,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = r * 0.055
+        ..strokeWidth = r * 0.07
         ..strokeCap = StrokeCap.butt
-        ..color = style.redlineColor.withValues(alpha: 0.9),
+        ..color = style.redlineColor.withValues(alpha: 0.45)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.03),
+    );
+    canvas.drawArc(
+      rect,
+      a0,
+      sweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.045
+        ..strokeCap = StrokeCap.butt
+        ..color = style.redlineColor.withValues(alpha: 0.95),
     );
 
     // Hash marks in redline (Ferrari style)
@@ -409,6 +442,12 @@ class AnalogGaugePainter extends CustomPainter {
     canvas.drawPath(
       needle,
       Paint()
+        ..color = style.needleColor.withValues(alpha: 0.45)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.03),
+    );
+    canvas.drawPath(
+      needle,
+      Paint()
         ..shader = ui.Gradient.linear(
           Offset(-backLen, 0),
           Offset(tipLen, 0),
@@ -525,6 +564,7 @@ class AnalogGaugePainter extends CustomPainter {
         oldDelegate.max != max ||
         oldDelegate.redlineFrom != redlineFrom ||
         oldDelegate.centerReadout != centerReadout ||
+        oldDelegate.pulsePhase != pulsePhase ||
         oldDelegate.style.theme != style.theme;
   }
 }
