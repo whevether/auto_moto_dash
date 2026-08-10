@@ -38,21 +38,15 @@ class DashDemoPage extends StatefulWidget {
 
 class _DashDemoPageState extends State<DashDemoPage>
     with SingleTickerProviderStateMixin {
-  static const double _maxSpeed = 260;
-  static const double _accelRate = 55; // km/h per second
-  static const double _brakeRate = 70;
-  static const double _coastRate = 28;
-
   final FocusNode _focusNode = FocusNode();
+  final DriveSimulation _drive = DriveSimulation();
 
   DashStyle _style = DashStyle.hud;
   WeatherType? _weather = WeatherType.cloudy;
   VehicleType _vehicleType = VehicleType.car;
-  double _speed = 0;
-  double _rpm = 800;
-  Gear _gear = Gear.park;
   bool _panelOpen = false;
   bool _rainbow = false;
+  String? _gearHint;
 
   bool _pointerAccelerating = false;
   bool _keyAccelerating = false;
@@ -64,9 +58,9 @@ class _DashDemoPageState extends State<DashDemoPage>
   bool get _accelerating => _pointerAccelerating || _keyAccelerating;
 
   DashTelemetry get _telemetry => DashTelemetry(
-        speedKmh: _speed,
-        rpm: _rpm,
-        maxRpm: 8000,
+        speedKmh: _drive.speedKmh,
+        rpm: _drive.rpm,
+        maxRpm: _drive.maxRpm,
         redlineRpm: 7000,
         batteryPercent: 99,
         fuelPercent: 62,
@@ -75,9 +69,11 @@ class _DashDemoPageState extends State<DashDemoPage>
         odometerKm: 12345.6,
         tripKm: 31.1,
         outsideTempC: 0,
-        gear: _gear,
+        gear: _drive.gear,
         gearNumber: _style == DashStyle.racing
-            ? (_speed < 1 ? 1 : (_speed / 40).ceil().clamp(1, 6))
+            ? (_drive.speedKmh < 1
+                ? 1
+                : (_drive.speedKmh / 40).ceil().clamp(1, 6))
             : null,
         tirePressures: const TirePressures(
           frontLeft: 2.9,
@@ -110,38 +106,39 @@ class _DashDemoPageState extends State<DashDemoPage>
     _lastTick = elapsed;
     if (dt <= 0 || dt > 0.1) return;
 
-    var next = _speed;
-    if (_keyBraking) {
-      next -= _brakeRate * dt;
-    } else if (_accelerating) {
-      next += _accelRate * dt;
-    } else {
-      next -= _coastRate * dt;
-    }
-    next = next.clamp(0, _maxSpeed);
+    _drive.tick(
+      dt,
+      accelerating: _accelerating,
+      braking: _keyBraking,
+    );
+    setState(() {});
+  }
 
-    final gearFactor = switch (_gear) {
-      Gear.park || Gear.neutral => 0.15,
-      Gear.reverse => 0.55,
-      Gear.drive => 1.0,
-    };
-    final targetRpm = _accelerating
-        ? (900 + next * 28 * gearFactor).clamp(800, 8000)
-        : (800 + next * 18 * gearFactor).clamp(800, 7500);
-
-    if ((next - _speed).abs() > 0.01 || (targetRpm - _rpm).abs() > 1) {
-      setState(() {
-        _speed = next;
-        final t = (12 * dt).clamp(0.0, 1.0);
-        _rpm += (targetRpm - _rpm) * t;
+  void _tryGear(Gear gear) {
+    final ok = _drive.trySetGear(gear);
+    setState(() {
+      _gearHint = ok
+          ? null
+          : switch (gear) {
+              Gear.park => '车速过高，无法挂 P',
+              Gear.reverse => '请先减速再挂 R',
+              _ => '无法切换到该档位',
+            };
+    });
+    if (_gearHint != null) {
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        if (mounted && _gearHint != null) {
+          setState(() => _gearHint = null);
+        }
       });
     }
   }
 
   void _shiftGear(int delta) {
     final values = Gear.values;
-    final i = (values.indexOf(_gear) + delta).clamp(0, values.length - 1);
-    setState(() => _gear = values[i]);
+    final i = values.indexOf(_drive.gear);
+    final next = (i + delta).clamp(0, values.length - 1);
+    if (next != i) _tryGear(values[next]);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -175,6 +172,13 @@ class _DashDemoPageState extends State<DashDemoPage>
 
   @override
   Widget build(BuildContext context) {
+    final gearHelp = switch (_drive.gear) {
+      Gear.park => 'P 驻车：锁止，油门不走车',
+      Gear.reverse => 'R 倒车：低速倒车',
+      Gear.neutral => 'N 空档：只抬转速，不加速',
+      Gear.drive => 'D 前进：正常加速',
+    };
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Focus(
@@ -219,15 +223,16 @@ class _DashDemoPageState extends State<DashDemoPage>
                   style: _style,
                   weather: _weather,
                   vehicleType: _vehicleType,
-                  speed: _speed,
-                  rpm: _rpm,
-                  gear: _gear,
+                  speed: _drive.speedKmh,
+                  rpm: _drive.rpm,
+                  gear: _drive.gear,
                   rainbow: _rainbow,
+                  gearHelp: gearHelp,
                   onClose: _closePanel,
                   onStyle: (v) => setState(() => _style = v),
                   onWeather: (v) => setState(() => _weather = v),
                   onVehicle: (v) => setState(() => _vehicleType = v),
-                  onGear: (v) => setState(() => _gear = v),
+                  onGear: _tryGear,
                   onRainbow: (v) => setState(() => _rainbow = v),
                 ),
               ),
@@ -249,16 +254,58 @@ class _DashDemoPageState extends State<DashDemoPage>
               bottom: 16,
               child: SafeArea(
                 child: IgnorePointer(
-                  child: Text(
-                    '按住加速 · ↑↓加减速 · ←→换档 · ${_speed.round()} km/h',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 11,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '按住加速 · ↑↓加减速 · ←→换档 · ${_drive.speedKmh.round()} km/h · ${_drive.gear.label}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        gearHelp,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
+            if (_gearHint != null)
+              Positioned(
+                top: 64,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Center(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade900.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          _gearHint!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -275,6 +322,7 @@ class _ControlPanel extends StatelessWidget {
     required this.rpm,
     required this.gear,
     required this.rainbow,
+    required this.gearHelp,
     required this.onClose,
     required this.onStyle,
     required this.onWeather,
@@ -290,6 +338,7 @@ class _ControlPanel extends StatelessWidget {
   final double rpm;
   final Gear gear;
   final bool rainbow;
+  final String gearHelp;
   final VoidCallback onClose;
   final ValueChanged<DashStyle> onStyle;
   final ValueChanged<WeatherType?> onWeather;
@@ -342,7 +391,7 @@ class _ControlPanel extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '长按仪表加速，松手减速；键盘 ↑↓ 加减速，←→ 换档',
+                '长按加速；↑↓ 加减速；←→ 换档（P/R 需近乎停车）',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.45),
                   fontSize: 12,
@@ -385,6 +434,14 @@ class _ControlPanel extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text('档位', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text(
+                gearHelp,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 12,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,

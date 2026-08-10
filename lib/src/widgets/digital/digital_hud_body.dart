@@ -41,6 +41,8 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
   late final SmoothedValue _speed;
   Duration _last = Duration.zero;
   double _elapsedSec = 0;
+  double _prevSpeed = 0;
+  double _accelNorm = 0;
 
   @override
   void initState() {
@@ -48,6 +50,7 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
     final responsiveness = widget.style == DashStyle.performance ? 18.0 : 10.0;
     _speed = SmoothedValue(widget.telemetry.speedKmh,
         responsiveness: responsiveness);
+    _prevSpeed = widget.telemetry.speedKmh;
     _ticker = createTicker(_onTick)..start();
   }
 
@@ -63,8 +66,16 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
         ? 1 / 60
         : (elapsed - _last).inMicroseconds / 1e6;
     _last = elapsed;
+    final clampedDt = dt.clamp(0.0, 0.05);
     _elapsedSec = elapsed.inMilliseconds / 1000.0;
-    _speed.tick(widget.telemetry.speedKmh, dt.clamp(0, 0.05));
+    _speed.tick(widget.telemetry.speedKmh, clampedDt);
+    if (clampedDt > 0) {
+      final accelKmhps = (_speed.value - _prevSpeed) / clampedDt;
+      // ~60 km/h/s ≈ full rush boost
+      final target = (accelKmhps / 60).clamp(-0.2, 1.2);
+      _accelNorm += (target - _accelNorm) * (8 * clampedDt).clamp(0.0, 1.0);
+      _prevSpeed = _speed.value;
+    }
     setState(() {});
   }
 
@@ -97,7 +108,8 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
     final threshold = widget.lightSpeedThresholdKmh <= 0
         ? 80.0
         : widget.lightSpeedThresholdKmh;
-    final intensity = (_speed.value / threshold).clamp(0.0, 1.0);
+    final speedNorm = (_speed.value / threshold).clamp(0.0, 1.25);
+    final intensity = speedNorm.clamp(0.0, 1.0);
     final displaySpeed = _speed.value.round().clamp(0, 999);
 
     return Stack(
@@ -106,9 +118,10 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
         CustomPaint(
           painter: WarpStreaksPainter(
             progress: _elapsedSec,
-            intensity: intensity,
+            speedNorm: speedNorm,
+            accelNorm: _accelNorm,
             accent: _accent,
-            streakCount: widget.style == DashStyle.performance ? 96 : 72,
+            streakCount: widget.style == DashStyle.performance ? 110 : 90,
           ),
         ),
         if (widget.style == DashStyle.techNeon)
