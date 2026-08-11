@@ -1,4 +1,4 @@
-name: example
+name: auto_moto_dash_example
 description: Demo for auto_moto_dash dashboard package.
 publish_to: 'none'
 version: 1.0.0+1

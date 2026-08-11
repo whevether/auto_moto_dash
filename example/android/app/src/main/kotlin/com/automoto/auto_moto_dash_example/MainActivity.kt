@@ -1,4 +1,4 @@
-package com.example.example
+package com.automoto.auto_moto_dash_example
 
 import io.flutter.embedding.android.FlutterActivity
 
