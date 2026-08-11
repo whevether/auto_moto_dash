@@ -1,4 +1,8 @@
-## 0.1.0
+## 0.2.0
+
+* Particle painters: clamp active particle count to list length (`starTunnel` / `ionStorm` / `windRush`), fixing `RangeError` at high `flowSpeed`.
+
+# 0.1.0
 
 * Initial release: digital HUD styles (`techNeon` / `hud` / `performance` / `pulseBreath`) and tech analog clusters (`classic` BMW dual gauges, `racing` Ferrari-style tach).
 * Weather layer: vendored flutter_weather_bg (MIT) with sunny / rain / snow / fog / haze `WeatherType`s.

@@ -29,7 +29,8 @@ class StarTunnelPainter extends CustomPainter {
     if (rush < 0.02) return;
 
     final paint = Paint();
-    final active = math.max(8, (_stars.length * (0.4 + rush * 0.5)).round());
+    final active =
+        (_stars.length * (0.4 + rush * 0.5)).round().clamp(8, _stars.length);
 
     for (var i = 0; i < active; i++) {
       final s = _stars[i];

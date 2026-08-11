@@ -65,7 +65,8 @@ class WindRushPainter extends CustomPainter {
     if (rush < 0.02) return;
 
     final density = (0.35 + rush * 0.55).clamp(0.0, 0.9);
-    final active = math.max(4, (_streaks.length * density).round());
+    final active =
+        (_streaks.length * density).round().clamp(4, _streaks.length);
     const layerMul = [0.55, 1.0, 1.45];
 
     for (var i = 0; i < active; i++) {

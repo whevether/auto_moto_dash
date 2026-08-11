@@ -28,7 +28,8 @@ class IonStormPainter extends CustomPainter {
     final rush = flowSpeed.clamp(0.0, 1.3);
     if (rush < 0.02) return;
 
-    final active = math.max(6, (_ions.length * (0.4 + rush * 0.5)).round());
+    final active =
+        (_ions.length * (0.4 + rush * 0.5)).round().clamp(6, _ions.length);
 
     for (var i = 0; i < active; i++) {
       final ion = _ions[i];
