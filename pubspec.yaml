@@ -3,8 +3,8 @@ description: >-
   Motorcycle/car dashboard Flutter package (EN/中文 docs): digital HUD,
   tech analog clusters, weather backgrounds, and inertial particle effects.
 version: 0.3.0
-homepage: https://github.com/whevether/swiper_view_pro
-repository: https://github.com/whevether/swiper_view_pro
+homepage: https://github.com/whevether/auto_moto_dash
+repository: https://github.com/whevether/auto_moto_dash
 
 environment:
   sdk: ^3.12.2
