@@ -1,3 +1,10 @@
+## 0.3.0
+
+* 依赖 `material_ui`（^1.0.1），Material 相关导入由 `package:flutter/material.dart` 改为 `package:material_ui/material_ui.dart`。
+* Flutter SDK 约束提升至 `>=3.44.0`。
+* Analyzer：在包与示例中排除 `build/**` 及平台目录（`android` / `ios` / `web` / 桌面端）。
+* 示例：移除未使用的 `cupertino_icons` 依赖。
+
 ## 0.2.0
 
 * 粒子绘制：将活跃粒子数限制在列表长度内（`starTunnel` / `ionStorm` / `windRush`），修复高 `flowSpeed` 下的 `RangeError`。

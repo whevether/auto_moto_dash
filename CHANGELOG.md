@@ -1,3 +1,10 @@
+## 0.3.0
+
+* Depend on `material_ui` (^1.0.1) and switch Material imports from `package:flutter/material.dart` to `package:material_ui/material_ui.dart`.
+* Raise Flutter SDK constraint to `>=3.44.0`.
+* Analyzer: exclude `build/**` and platform folders (`android` / `ios` / `web` / desktop) in package and example.
+* Example: drop unused `cupertino_icons` dependency.
+
 ## 0.2.0
 
 * Particle painters: clamp active particle count to list length (`starTunnel` / `ionStorm` / `windRush`), fixing `RangeError` at high `flowSpeed`.

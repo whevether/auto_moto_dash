@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:auto_moto_dash/src/weather/fw/utils/weather_type.dart';
 
 /// 颜色背景层

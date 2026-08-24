@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../models/dash_telemetry.dart';
 import '../../models/vehicle_type.dart';

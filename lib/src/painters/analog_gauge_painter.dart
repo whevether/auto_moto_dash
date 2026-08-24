@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 enum AnalogGaugeTheme {
   /// BMW-inspired tech HUD: cyan neon bezel, ice ticks, red needle.
