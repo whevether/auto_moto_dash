@@ -10,6 +10,8 @@ import '../../models/dash_telemetry.dart';
 import '../../models/gear.dart';
 import '../../painters/analog_gauge_painter.dart';
 import '../shared/gear_selector.dart';
+import '../shared/mileage_range_strip.dart';
+import '../shared/overspeed_warning.dart';
 
 class AnalogClusterBody extends StatefulWidget {
   const AnalogClusterBody({
@@ -87,14 +89,18 @@ class _AnalogClusterBodyState extends State<AnalogClusterBody>
     final redPulse = _racing && _rpm.value >= t.redlineRpm;
     final pulse = ((_phase * 8) % 1.0 - 0.5).abs() * 2;
 
-    return CustomPaint(
-      painter: _ClusterHoodPainter(
-        racing: _racing,
-        redPulse: redPulse ? 0.25 + 0.35 * pulse : 0,
-        showWeather: widget.dimForWeather,
-      ),
-      child: SafeArea(
-        child: _racing ? _buildFerrari(t) : _buildBmw(t),
+    return OverspeedWarningLayer(
+      speedKmh: _speed.value,
+      speedLimitKmh: t.speedLimitKmh,
+      child: CustomPaint(
+        painter: _ClusterHoodPainter(
+          racing: _racing,
+          redPulse: redPulse ? 0.25 + 0.35 * pulse : 0,
+          showWeather: widget.dimForWeather,
+        ),
+        child: SafeArea(
+          child: _racing ? _buildFerrari(t) : _buildBmw(t),
+        ),
       ),
     );
   }
@@ -488,25 +494,11 @@ class _BmwFooter extends StatelessWidget {
             icon: Icons.local_gas_station,
           ),
           Expanded(
-            child: Column(
-              children: [
-                Text(
-                  'ODO ${telemetry.odometerKm.toStringAsFixed(1)} km',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    fontSize: 11,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'TRIP ${telemetry.tripKm.toStringAsFixed(1)}  ·  ${telemetry.outsideTempC.round()}°C',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
+            child: MileageRangeStrip(
+              telemetry: telemetry,
+              showTrip: true,
+              fontSize: 11,
+              secondaryFontSize: 10,
             ),
           ),
           _AuxGauge(
@@ -612,12 +604,11 @@ class _FerrariFooter extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'ODO ${telemetry.odometerKm.toStringAsFixed(0)}  ·  WATER ${telemetry.coolantTempC.round()}°',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.45),
-                    fontSize: 10,
-                  ),
+                MileageRangeStrip(
+                  telemetry: telemetry,
+                  fontSize: 10,
+                  secondaryFontSize: 9,
+                  color: Colors.white.withValues(alpha: 0.45),
                 ),
               ],
             ),

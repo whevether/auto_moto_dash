@@ -8,7 +8,10 @@ import '../../models/gear.dart';
 import '../../models/vehicle_type.dart';
 import '../../painters/neon_polygon_painter.dart';
 import '../../painters/pulse_ring_painter.dart';
+import '../shared/cluster_surface.dart';
 import '../shared/gear_selector.dart';
+import '../shared/mileage_range_strip.dart';
+import '../shared/overspeed_warning.dart';
 import '../shared/vehicle_outline.dart';
 
 class DigitalHudBody extends StatefulWidget {
@@ -21,6 +24,7 @@ class DigitalHudBody extends StatefulWidget {
     required this.showGearSelector,
     required this.showVehicleOutline,
     this.rainbowSpeed = false,
+    this.dimForWeather = false,
     this.onGearSelected,
     this.onGearPointerDown,
   });
@@ -32,6 +36,7 @@ class DigitalHudBody extends StatefulWidget {
   final bool showGearSelector;
   final bool showVehicleOutline;
   final bool rainbowSpeed;
+  final bool dimForWeather;
   final ValueChanged<Gear>? onGearSelected;
   final VoidCallback? onGearPointerDown;
 
@@ -105,162 +110,133 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
     final intensity = speedNorm.clamp(0.0, 1.0);
     final displaySpeed = _speed.value.round().clamp(0, 999);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (widget.style == DashStyle.techNeon)
-          CustomPaint(
-            painter: NeonPolygonPainter(
-              sides: 6,
-              rotation: _elapsedSec * 0.15,
-              color: _accent,
-              intensity: intensity,
+    return OverspeedWarningLayer(
+      speedKmh: _speed.value,
+      speedLimitKmh: widget.telemetry.speedLimitKmh,
+      child: ClusterSurface(
+        dimForWeather: widget.dimForWeather,
+        baseColor: Colors.black,
+        weatherScrimAlpha: 0.12,
+        solidAlpha: 0.0,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+          if (widget.style == DashStyle.techNeon)
+            CustomPaint(
+              painter: NeonPolygonPainter(
+                sides: 6,
+                rotation: _elapsedSec * 0.15,
+                color: _accent,
+                intensity: intensity,
+              ),
             ),
-          ),
-        if (widget.style == DashStyle.pulseBreath)
-          CustomPaint(
-            painter: PulseRingPainter(
-              phase: _elapsedSec * (0.35 + intensity * 0.9),
-              intensity: intensity,
-              color: _accent,
+          if (widget.style == DashStyle.pulseBreath)
+            CustomPaint(
+              painter: PulseRingPainter(
+                phase: _elapsedSec * (0.35 + intensity * 0.9),
+                intensity: intensity,
+                color: _accent,
+              ),
             ),
-          ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              children: [
-                _TopStats(telemetry: widget.telemetry),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$displaySpeed',
-                              style: TextStyle(
-                                color: _speedColor(_speed.value),
-                                fontSize: 96,
-                                fontWeight: FontWeight.w700,
-                                height: 1,
-                                letterSpacing: -2,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.35 + intensity * 0.25),
-                                    blurRadius: 24,
-                                  ),
-                                  if (widget.style == DashStyle.techNeon ||
-                                      widget.rainbowSpeed)
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Column(
+                children: [
+                  MileageRangeStrip(
+                    telemetry: widget.telemetry,
+                    showBattery: true,
+                    showTrip: true,
+                    fontSize: 13,
+                    secondaryFontSize: 11,
+                  ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$displaySpeed',
+                                style: TextStyle(
+                                  color: _speedColor(_speed.value),
+                                  fontSize: 96,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1,
+                                  letterSpacing: -2,
+                                  shadows: [
                                     Shadow(
-                                      color: _speedColor(_speed.value)
-                                          .withValues(alpha: 0.55),
-                                      blurRadius: 28,
+                                      color: Colors.white.withValues(
+                                          alpha: 0.35 + intensity * 0.25),
+                                      blurRadius: 24,
                                     ),
-                                ],
+                                    if (widget.style == DashStyle.techNeon ||
+                                        widget.rainbowSpeed)
+                                      Shadow(
+                                        color: _speedColor(_speed.value)
+                                            .withValues(alpha: 0.55),
+                                        blurRadius: 28,
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            Text(
-                              'KM/H',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: 3,
+                              Text(
+                                'KM/H',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: 3,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (widget.showVehicleOutline)
-                        Positioned(
-                          right: 0,
-                          top: 24,
-                          child: VehicleOutline(
-                            vehicleType: widget.vehicleType,
-                            tires: widget.telemetry.tirePressures,
+                            ],
                           ),
                         ),
+                        if (widget.showVehicleOutline)
+                          Positioned(
+                            right: 0,
+                            top: 24,
+                            child: VehicleOutline(
+                              vehicleType: widget.vehicleType,
+                              tires: widget.telemetry.tirePressures,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (widget.showGearSelector) ...[
+                    GearSelector(
+                      gear: widget.telemetry.gear,
+                      accent: _accent,
+                      onGearSelected: widget.onGearSelected,
+                      onGearPointerDown: widget.onGearPointerDown,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (widget.style == DashStyle.hud)
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.03),
+                      Colors.transparent,
+                      Colors.white.withValues(alpha: 0.02),
                     ],
                   ),
                 ),
-                if (widget.showGearSelector) ...[
-                  GearSelector(
-                    gear: widget.telemetry.gear,
-                    accent: _accent,
-                    onGearSelected: widget.onGearSelected,
-                    onGearPointerDown: widget.onGearPointerDown,
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (widget.style == DashStyle.hud)
-          IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.03),
-                    Colors.transparent,
-                    Colors.white.withValues(alpha: 0.02),
-                  ],
-                ),
-              ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TopStats extends StatelessWidget {
-  const _TopStats({required this.telemetry});
-
-  final DashTelemetry telemetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '${telemetry.batteryPercent.round()}%',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: const BoxDecoration(
-                color: Colors.white54,
-                shape: BoxShape.circle,
+                child: const SizedBox.expand(),
               ),
             ),
-          ),
-          Text(
-            '${telemetry.rangeKm.round()} km',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
         ],
+        ),
       ),
     );
   }

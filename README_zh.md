@@ -6,11 +6,12 @@
 
 ## 特性
 
-- 6 套互斥主题：4 套数字 HUD + 宝马双圆表 + 法拉利主转速表
+- 13 套互斥主题：4 套数字 HUD + 宝马双圆表 + 法拉利主转速表 + 特斯拉/蔚来/理想电车 + 4 款摩托车表盘（2 燃油 + 2 电动）
 - 可选天气背景（晴雨雪雾霾等，基于内嵌 [flutter_weather_bg](https://github.com/xiaweizi/flutter_weather_bg)）
 - 5 种互斥粒子动效，流速随车速惯性变化（加速跟得快、减速缓落）
 - `DriveSimulation`：演示用 PRND 驾驶模型（档位互锁、滑行、倒车限速）
-- 车型轮廓（轿车 / 摩托）、档位条、彩虹速度数字等可开关选项
+- 汽车主题统一法拉利风格超速警告（`speedLimitKmh` 触发换挡灯 + 红色脉冲）
+- 全部主题显示总里程（ODO）与剩余续航（rangeKm）；电车主题显示电量
 
 ## 安装
 
@@ -67,20 +68,29 @@ AutoMotoDashboard(
 
 ## 遥测 `DashTelemetry`
 
-常用字段：`speedKmh`、`rpm`、`maxRpm`、`redlineRpm`、`batteryPercent`、`fuelPercent`、`coolantTempC`、`rangeKm`、`odometerKm`、`tripKm`、`outsideTempC`、`gear`、`gearNumber`（手动 1–6，赛车主题优先）、`tirePressures`（四轮胎压 bar）。全部字段均可 `copyWith` 更新。
+常用字段：`speedKmh`、`rpm`、`maxRpm`、`redlineRpm`、`batteryPercent`、`fuelPercent`、`coolantTempC`、`rangeKm`、`odometerKm`、`tripKm`、`outsideTempC`、`speedLimitKmh`（汽车超速阈值，默认 120，0 关闭）、`gear`、`gearNumber`（手动 1–6，赛车主题优先）、`tirePressures`（四轮胎压 bar）。全部字段均可 `copyWith` 更新。
 
-## 主题（互斥）
+## 分类与主题（互斥）
 
-| DashStyle | 说明 |
-|---|---|
-| `techNeon` | 多边形霓虹科技感 |
-| `hud` | 透明悬浮 HUD |
-| `performance` | 高刷新流畅过渡 |
-| `pulseBreath` | 脉冲呼吸光效 |
-| `classic` | 宝马科技风双圆仪表 |
-| `racing` | 法拉利赛博风主转速表 |
+汽车与摩托车主题通过 `DashCategory` 分离，使用 `DashStyleX.forCategory(DashCategory.car)` 获取对应列表。
 
-`style.isDigital` / `style.isAnalog`、`style.label` 可直接用于 UI 文案。
+| DashStyle | 分类 | 说明 |
+|---|---|---|
+| `techNeon` | 汽车 | 多边形霓虹科技感 |
+| `hud` | 汽车 | 透明悬浮 HUD |
+| `performance` | 汽车 | 高刷新流畅过渡 |
+| `pulseBreath` | 汽车 | 脉冲呼吸光效 |
+| `classic` | 汽车 | 宝马科技风双圆仪表 |
+| `racing` | 汽车 | 法拉利赛博风主转速表 |
+| `carEvTesla` | 汽车 | 特斯拉电车（电量 + 续航） |
+| `carEvNio` | 汽车 | 蔚来电车（环形电量） |
+| `carEvLi` | 汽车 | 理想电车（宽屏 HUD） |
+| `motoFuelTft` | 摩托 | 燃油摩托全 TFT |
+| `motoFuelHybrid` | 摩托 | 燃油摩托指针 + TFT |
+| `motoEvNiu` | 摩托 | 小牛电动（电量） |
+| `motoEvYadea` | 摩托 | 雅迪电动（电量） |
+
+`style.isDigital` / `style.isAnalog` / `style.isElectric` / `style.label` 可直接用于 UI 文案。
 
 ## 粒子效果（互斥；可 `null` 关闭）
 
@@ -161,7 +171,8 @@ flutter run
 入口：`package:auto_moto_dash/auto_moto_dash.dart`
 
 - `AutoMotoDashboard`
-- `DashStyle` / `DashTelemetry` / `TirePressures`
+- `DashStyle` / `DashCategory` / `DashTelemetry` / `TirePressures`
+- `OverspeedShiftLights` / `OverspeedWarningLayer`
 - `Gear` / `VehicleType`
 - `WeatherType` / `ParticleEffect`
 - `DriveSimulation`

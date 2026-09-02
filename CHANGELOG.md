@@ -1,3 +1,12 @@
+## 0.4.0
+
+* **Car / motorcycle categories**: new `DashCategory`; `DashStyle` adds 7 themes (4 motorcycle + 3 EV car); filter via `DashStyleX.forCategory` / `defaultFor`.
+* **Motorcycle clusters**: `motoFuelTft`, `motoFuelHybrid` (fuel), `motoEvNiu`, `motoEvYadea` (electric with SOC).
+* **EV car clusters**: `carEvTesla`, `carEvNio`, `carEvLi` with battery and range.
+* **Overspeed warning**: Ferrari-style shift lights + red pulse on all car themes when `speedKmh` exceeds `DashTelemetry.speedLimitKmh`.
+* **Mileage / range**: unified ODO + `rangeKm` on every theme.
+* Shared widgets: `OverspeedShiftLights`, `OverspeedWarningLayer`, `MileageRangeStrip`.
+
 ## 0.3.0
 
 * Depend on `material_ui` (^1.0.1) and switch Material imports from `package:flutter/material.dart` to `package:material_ui/material_ui.dart`.

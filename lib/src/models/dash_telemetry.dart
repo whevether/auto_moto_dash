@@ -43,6 +43,7 @@ class DashTelemetry {
     this.odometerKm = 0,
     this.tripKm = 0,
     this.outsideTempC = 20,
+    this.speedLimitKmh = 120,
     this.gear = Gear.park,
     this.gearNumber,
     this.tirePressures = const TirePressures(),
@@ -81,6 +82,9 @@ class DashTelemetry {
   /// Outside ambient temperature in °C.
   final double outsideTempC;
 
+  /// Speed limit in km/h; car overspeed warning when exceeded. 0 disables.
+  final double speedLimitKmh;
+
   /// Automatic PRND position.
   final Gear gear;
 
@@ -100,6 +104,7 @@ class DashTelemetry {
     double? odometerKm,
     double? tripKm,
     double? outsideTempC,
+    double? speedLimitKmh,
     Gear? gear,
     int? gearNumber,
     TirePressures? tirePressures,
@@ -116,6 +121,7 @@ class DashTelemetry {
       odometerKm: odometerKm ?? this.odometerKm,
       tripKm: tripKm ?? this.tripKm,
       outsideTempC: outsideTempC ?? this.outsideTempC,
+      speedLimitKmh: speedLimitKmh ?? this.speedLimitKmh,
       gear: gear ?? this.gear,
       gearNumber: gearNumber ?? this.gearNumber,
       tirePressures: tirePressures ?? this.tirePressures,

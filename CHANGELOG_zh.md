@@ -1,3 +1,13 @@
+## 0.4.0
+
+* **汽车 / 摩托车分类**：新增 `DashCategory`；`DashStyle` 扩展 7 款主题（摩托 4 + 电车汽车 3），`DashStyleX.forCategory` / `defaultFor` 按分类筛选。
+* **摩托车仪表盘**：`motoFuelTft`、`motoFuelHybrid`（燃油）、`motoEvNiu`、`motoEvYadea`（电动，含电量显示）。
+* **电车汽车仪表盘**：`carEvTesla`、`carEvNio`、`carEvLi`，均显示电量与续航。
+* **超速警告**：所有汽车主题接入法拉利风格换挡灯 + 红色脉冲，由 `DashTelemetry.speedLimitKmh` 触发。
+* **里程 / 续航**：全部主题统一显示 `ODO` 与剩余续航 `rangeKm`。
+* 新增 `OverspeedShiftLights`、`OverspeedWarningLayer`、`MileageRangeStrip` 等共享组件。
+* 摩托车 / 电车仪表盘 UI 按参考图重绘；`ClusterSurface` 在开启天气时半透明，汽车与摩托车均可透出天气背景。
+
 ## 0.3.0
 
 * 依赖 `material_ui`（^1.0.1），Material 相关导入由 `package:flutter/material.dart` 改为 `package:material_ui/material_ui.dart`。

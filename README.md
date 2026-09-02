@@ -6,11 +6,12 @@ A pure-Dart Flutter package for motorcycle / car dashboards: digital HUD, tech B
 
 ## Features
 
-- 6 mutually exclusive themes: 4 digital HUDs + BMW dual gauges + Ferrari-style tach cluster
+- 13 mutually exclusive themes: 4 digital HUDs + BMW + Ferrari + Tesla/NIO/Li EV + 4 motorcycle clusters (2 fuel + 2 electric)
 - Optional weather (sun / rain / snow / fog / haze, etc.), based on vendored [flutter_weather_bg](https://github.com/xiaweizi/flutter_weather_bg)
 - 5 mutually exclusive particle effects with inertial flow (fast ramp-up, slow coast-down)
 - `DriveSimulation`: demo PRND model (shift interlocks, coasting, reverse speed cap)
-- Optional vehicle outline (car / motorcycle), gear strip, rainbow speed digits
+- Ferrari-style overspeed warning on all car themes (`speedLimitKmh` triggers shift lights + red pulse)
+- ODO + remaining range on every theme; SOC on electric themes
 
 ## Installation
 
@@ -67,20 +68,29 @@ Layer order (bottom → top): `backgroundColor` → weather → particles → cl
 
 ## Telemetry `DashTelemetry`
 
-Common fields: `speedKmh`, `rpm`, `maxRpm`, `redlineRpm`, `batteryPercent`, `fuelPercent`, `coolantTempC`, `rangeKm`, `odometerKm`, `tripKm`, `outsideTempC`, `gear`, `gearNumber` (manual 1–6; preferred by racing theme), `tirePressures` (bar). All fields support `copyWith`.
+Common fields: `speedKmh`, `rpm`, `maxRpm`, `redlineRpm`, `batteryPercent`, `fuelPercent`, `coolantTempC`, `rangeKm`, `odometerKm`, `tripKm`, `outsideTempC`, `speedLimitKmh` (car overspeed threshold, default 120; 0 disables), `gear`, `gearNumber` (manual 1–6; preferred by racing theme), `tirePressures` (bar). All fields support `copyWith`.
 
-## Themes (exclusive)
+## Categories & themes (exclusive)
 
-| DashStyle | Description |
-|---|---|
-| `techNeon` | Polygonal neon tech cluster |
-| `hud` | Floating transparent HUD |
-| `performance` | High-refresh smooth digital cluster |
-| `pulseBreath` | Breathing / pulse light readout |
-| `classic` | BMW-style dual analog gauges |
-| `racing` | Ferrari-style cyber tach cluster |
+Car and motorcycle themes are separated via `DashCategory`. Use `DashStyleX.forCategory(DashCategory.car)` to list styles for a category.
 
-Use `style.isDigital` / `style.isAnalog` and `style.label` for UI copy.
+| DashStyle | Category | Description |
+|---|---|---|
+| `techNeon` | car | Polygonal neon tech cluster |
+| `hud` | car | Floating transparent HUD |
+| `performance` | car | High-refresh smooth digital cluster |
+| `pulseBreath` | car | Breathing / pulse light readout |
+| `classic` | car | BMW-style dual analog gauges |
+| `racing` | car | Ferrari-style cyber tach cluster |
+| `carEvTesla` | car | Tesla EV (SOC + range) |
+| `carEvNio` | car | NIO EV (ring SOC) |
+| `carEvLi` | car | Li Auto EV (wide HUD) |
+| `motoFuelTft` | motorcycle | Fuel TFT cluster |
+| `motoFuelHybrid` | motorcycle | Fuel analog tach + TFT |
+| `motoEvNiu` | motorcycle | NIU electric (SOC) |
+| `motoEvYadea` | motorcycle | Yadea electric (SOC) |
+
+Use `style.isDigital` / `style.isAnalog` / `style.isElectric` and `style.label` for UI copy.
 
 ## Particle effects (exclusive; `null` disables)
 
@@ -161,7 +171,8 @@ See [example/README.md](example/README.md) for more. Android release signing use
 Entry point: `package:auto_moto_dash/auto_moto_dash.dart`
 
 - `AutoMotoDashboard`
-- `DashStyle` / `DashTelemetry` / `TirePressures`
+- `DashStyle` / `DashCategory` / `DashTelemetry` / `TirePressures`
+- `OverspeedShiftLights` / `OverspeedWarningLayer`
 - `Gear` / `VehicleType`
 - `WeatherType` / `ParticleEffect`
 - `DriveSimulation`

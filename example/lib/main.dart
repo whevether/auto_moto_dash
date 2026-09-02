@@ -42,9 +42,9 @@ class _DashDemoPageState extends State<DashDemoPage>
   final DriveSimulation _drive = DriveSimulation();
 
   DashStyle _style = DashStyle.hud;
+  DashCategory _category = DashCategory.car;
   WeatherType? _weather = WeatherType.cloudy;
   ParticleEffect? _particle = ParticleEffect.windRush;
-  VehicleType _vehicleType = VehicleType.car;
   bool _panelOpen = false;
   bool _rainbow = false;
   String? _gearHint;
@@ -69,6 +69,7 @@ class _DashDemoPageState extends State<DashDemoPage>
         fuelPercent: 62,
         coolantTempC: 90,
         rangeKm: 462,
+        speedLimitKmh: 120,
         odometerKm: 12345.6,
         tripKm: 31.1,
         outsideTempC: 0,
@@ -210,8 +211,12 @@ class _DashDemoPageState extends State<DashDemoPage>
                 style: _style,
                 weather: _weather,
                 particleEffect: _particle,
-                vehicleType: _vehicleType,
+                vehicleType: _category == DashCategory.car
+                    ? VehicleType.car
+                    : VehicleType.motorcycle,
                 lightSpeedThresholdKmh: 80,
+                showVehicleOutline: _style.isDigitalHud &&
+                    _category == DashCategory.car,
                 rainbowSpeed: _rainbow,
                 onGearSelected: _tryGear,
                 onGearPointerDown: () {
@@ -236,7 +241,7 @@ class _DashDemoPageState extends State<DashDemoPage>
                   style: _style,
                   weather: _weather,
                   particle: _particle,
-                  vehicleType: _vehicleType,
+                  category: _category,
                   speed: _drive.speedKmh,
                   rpm: _drive.rpm,
                   gear: _drive.gear,
@@ -246,7 +251,10 @@ class _DashDemoPageState extends State<DashDemoPage>
                   onStyle: (v) => setState(() => _style = v),
                   onWeather: (v) => setState(() => _weather = v),
                   onParticle: (v) => setState(() => _particle = v),
-                  onVehicle: (v) => setState(() => _vehicleType = v),
+                  onCategory: (v) => setState(() {
+                    _category = v;
+                    _style = DashStyleX.defaultFor(v);
+                  }),
                   onGear: _tryGear,
                   onRainbow: (v) => setState(() => _rainbow = v),
                 ),
@@ -331,9 +339,9 @@ class _DashDemoPageState extends State<DashDemoPage>
 class _ControlPanel extends StatelessWidget {
   const _ControlPanel({
     required this.style,
+    required this.category,
     required this.weather,
     required this.particle,
-    required this.vehicleType,
     required this.speed,
     required this.rpm,
     required this.gear,
@@ -343,15 +351,15 @@ class _ControlPanel extends StatelessWidget {
     required this.onStyle,
     required this.onWeather,
     required this.onParticle,
-    required this.onVehicle,
+    required this.onCategory,
     required this.onGear,
     required this.onRainbow,
   });
 
   final DashStyle style;
+  final DashCategory category;
   final WeatherType? weather;
   final ParticleEffect? particle;
-  final VehicleType vehicleType;
   final double speed;
   final double rpm;
   final Gear gear;
@@ -361,7 +369,7 @@ class _ControlPanel extends StatelessWidget {
   final ValueChanged<DashStyle> onStyle;
   final ValueChanged<WeatherType?> onWeather;
   final ValueChanged<ParticleEffect?> onParticle;
-  final ValueChanged<VehicleType> onVehicle;
+  final ValueChanged<DashCategory> onCategory;
   final ValueChanged<Gear> onGear;
   final ValueChanged<bool> onRainbow;
 
@@ -417,12 +425,31 @@ class _ControlPanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              const Text('分类', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('汽车'),
+                    selected: category == DashCategory.car,
+                    onSelected: (_) => onCategory(DashCategory.car),
+                  ),
+                  ChoiceChip(
+                    label: const Text('摩托车'),
+                    selected: category == DashCategory.motorcycle,
+                    onSelected: (_) => onCategory(DashCategory.motorcycle),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               const Text('主题', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: DashStyle.values.map((s) {
+                children: DashStyleX.forCategory(category).map((s) {
                   return ChoiceChip(
                     label: Text(s.label),
                     selected: style == s,
@@ -494,28 +521,20 @@ class _ControlPanel extends StatelessWidget {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('汽车'),
-                    selected: vehicleType == VehicleType.car,
-                    onSelected: (_) => onVehicle(VehicleType.car),
-                  ),
-                  ChoiceChip(
-                    label: const Text('摩托'),
-                    selected: vehicleType == VehicleType.motorcycle,
-                    onSelected: (_) => onVehicle(VehicleType.motorcycle),
-                  ),
-                  FilterChip(
-                    label: const Text('彩虹速度'),
-                    selected: rainbow,
-                    onSelected: onRainbow,
-                  ),
-                ],
-              ),
+              if (category == DashCategory.car) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilterChip(
+                      label: const Text('彩虹速度'),
+                      selected: rainbow,
+                      onSelected: onRainbow,
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
