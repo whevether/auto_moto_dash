@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../models/gear.dart';
 
 /// Simple automatic-transmission drive model for demos / mock telemetry.
@@ -18,11 +20,30 @@ class DriveSimulation {
     this.maxReverseSpeedKmh = 45,
     this.maxRpm = 8000,
     this.idleRpm = 800,
-  });
+  }) : _rollingInReverse = gear == Gear.reverse {
+    if (!maxSpeedKmh.isFinite ||
+        maxSpeedKmh <= 0 ||
+        !maxReverseSpeedKmh.isFinite ||
+        maxReverseSpeedKmh <= 0 ||
+        !maxRpm.isFinite ||
+        !idleRpm.isFinite ||
+        idleRpm < 0 ||
+        maxRpm < idleRpm) {
+      throw ArgumentError(
+        'Drive limits must be finite and positive, with maxRpm >= idleRpm.',
+      );
+    }
+    if (!speedKmh.isFinite || !rpm.isFinite) {
+      throw ArgumentError('Initial speed and RPM must be finite.');
+    }
+    speedKmh = speedKmh.clamp(0, maxSpeedKmh);
+    rpm = rpm.clamp(idleRpm, maxRpm);
+  }
 
   double speedKmh;
   double rpm;
   Gear gear;
+  bool _rollingInReverse;
 
   final double maxSpeedKmh;
   final double maxReverseSpeedKmh;
@@ -52,6 +73,14 @@ class DriveSimulation {
       return false;
     }
 
+    if (next == Gear.drive &&
+        _rollingInReverse &&
+        speedKmh > _reverseEngageMaxSpeed) {
+      return false;
+    }
+    if (next == Gear.drive || next == Gear.reverse) {
+      _rollingInReverse = next == Gear.reverse;
+    }
     gear = next;
     return true;
   }
@@ -64,12 +93,11 @@ class DriveSimulation {
     return trySetGear(values[i]);
   }
 
-  void tick(
-    double dt, {
-    required bool accelerating,
-    required bool braking,
-  }) {
-    if (dt <= 0) return;
+  void tick(double dt, {required bool accelerating, required bool braking}) {
+    if (!dt.isFinite || dt <= 0) return;
+    if (!speedKmh.isFinite) speedKmh = 0;
+    if (!rpm.isFinite) rpm = idleRpm;
+    speedKmh = speedKmh.clamp(0, maxSpeedKmh);
 
     final prevSpeed = speedKmh;
     var nextSpeed = speedKmh;
@@ -112,8 +140,14 @@ class DriveSimulation {
         }
         nextSpeed = nextSpeed.clamp(0, maxReverseSpeedKmh);
         targetRpm = accelerating
-            ? (idleRpm + 900 + nextSpeed * 55).clamp(idleRpm, maxRpm - 500)
-            : (idleRpm + nextSpeed * 28).clamp(idleRpm, maxRpm * 0.6);
+            ? (idleRpm + 900 + nextSpeed * 55).clamp(
+                idleRpm,
+                math.max(idleRpm, maxRpm - 500),
+              )
+            : (idleRpm + nextSpeed * 28).clamp(
+                idleRpm,
+                math.max(idleRpm, maxRpm * 0.6),
+              );
         break;
 
       case Gear.drive:
@@ -129,7 +163,10 @@ class DriveSimulation {
         nextSpeed = nextSpeed.clamp(0, maxSpeedKmh);
         targetRpm = accelerating
             ? (idleRpm + 700 + nextSpeed * 26).clamp(idleRpm, maxRpm)
-            : (idleRpm + nextSpeed * 16).clamp(idleRpm, maxRpm * 0.85);
+            : (idleRpm + nextSpeed * 16).clamp(
+                idleRpm,
+                math.max(idleRpm, maxRpm * 0.85),
+              );
         break;
     }
 
@@ -139,5 +176,6 @@ class DriveSimulation {
     final rpmT = (10 * dt).clamp(0.0, 1.0);
     rpm += (targetRpm - rpm) * rpmT;
     rpm = rpm.clamp(idleRpm.toDouble(), maxRpm.toDouble());
+    if ((targetRpm - rpm).abs() < 0.5) rpm = targetRpm;
   }
 }

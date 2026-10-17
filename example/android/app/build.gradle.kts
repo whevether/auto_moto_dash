@@ -13,24 +13,19 @@ val localProperties = Properties()
 // 加载打包 key（测试用，见 example/jks/ 与 android/key.properties）
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
-    localProperties.load(FileInputStream(keystorePropertiesFile))
+    FileInputStream(keystorePropertiesFile).use { localProperties.load(it) }
 }
 
 android {
     namespace = "com.automoto.auto_moto_dash_example"
     compileSdk = 37
-    ndkVersion = "30.0.15729638"
+    ndkVersion = "30.0.16248370"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget = JvmTarget.JVM_17
-        }
-    }
 
     packaging {
         dex {
@@ -79,6 +74,10 @@ android {
             isShrinkResources = true
         }
     }
+}
+
+kotlin {
+    compilerOptions { jvmTarget = JvmTarget.JVM_17 }
 }
 
 flutter {

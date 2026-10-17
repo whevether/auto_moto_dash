@@ -29,8 +29,12 @@ class _WeatherCloudBgState extends State<WeatherCloudBg> {
 
   Future<void> _fetchImages() async {
     weatherPrint("开始获取云层图片");
-    final cloud = await ImageUtils.getImage('assets/weather_bg/cloud.webp');
-    final sun = await ImageUtils.getImage('assets/weather_bg/sun.webp');
+    final images = await ImageUtils.getImages([
+      'assets/weather_bg/cloud.webp',
+      'assets/weather_bg/sun.webp',
+    ]);
+    final cloud = images[0];
+    final sun = images[1];
     if (!mounted) {
       cloud.dispose();
       sun.dispose();
@@ -46,7 +50,16 @@ class _WeatherCloudBgState extends State<WeatherCloudBg> {
   @override
   void initState() {
     super.initState();
-    _fetchImages();
+    _fetchImages().catchError((Object error, StackTrace stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'auto_moto_dash',
+          context: ErrorDescription('loading weather assets'),
+        ),
+      );
+    });
   }
 
   @override
@@ -63,6 +76,7 @@ class _WeatherCloudBgState extends State<WeatherCloudBg> {
     if (cloud == null || sun == null) return const SizedBox.shrink();
     final size = SizeInherited.of(context)!.size;
     return CustomPaint(
+      size: Size.infinite,
       painter: _CloudPainter(
         cloudImage: cloud,
         sunImage: sun,
@@ -170,24 +184,25 @@ const List<double> _mHeavySnow = [
 
 // 常见的三朵云布局 / 两朵云布局（偏移依赖图片宽度，所以用 offsetsOf）
 List<Offset> _threeCloudOffsets(ui.Image image) => [
-      const Offset(0, -200),
-      Offset(-image.width / 2, -130),
-      const Offset(100, 0),
-    ];
+  const Offset(0, -200),
+  Offset(-image.width / 2, -130),
+  const Offset(100, 0),
+];
 
 List<Offset> _twoSnowOffsets(ui.Image image) => const [
-      Offset(-380, -100),
-      Offset(0, -170),
-    ];
+  Offset(-380, -100),
+  Offset(0, -170),
+];
 
 List<Offset> _threeRainOffsets(ui.Image image) => const [
-      Offset(-380, -150),
-      Offset(0, -60),
-      Offset(0, 60),
-    ];
+  Offset(-380, -150),
+  Offset(0, -60),
+  Offset(0, 60),
+];
 
-List<Offset> _singleHugeOffset(ui.Image image) =>
-    [Offset(-image.width * 0.5, -200)];
+List<Offset> _singleHugeOffset(ui.Image image) => [
+  Offset(-image.width * 0.5, -200),
+];
 
 /// 各天气类型的绘制规格表。
 ///
@@ -328,8 +343,8 @@ class _CloudPainter extends CustomPainter {
     final sunScale = 1.2 * widthRatio;
     canvas.scale(sunScale, sunScale);
     final sunOffset = Offset(
-      width - sunImage.width.toDouble() * sunScale,
-      -sunImage.width.toDouble() / 2,
+      width / sunScale - sunImage.width,
+      -sunImage.height.toDouble() / 2,
     );
     canvas.drawImage(sunImage, sunOffset, _paint);
     canvas.restore();

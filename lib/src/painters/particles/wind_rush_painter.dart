@@ -11,7 +11,6 @@ class _Streak {
     required this.length,
     required this.thickness,
     required this.layer,
-    required this.seed,
   });
 
   final double u;
@@ -20,7 +19,6 @@ class _Streak {
   final double length;
   final double thickness;
   final int layer;
-  final int seed;
 }
 
 /// Sparse wind streaks; motion from [distance] / [flowSpeed].
@@ -30,13 +28,15 @@ class WindRushPainter extends CustomPainter {
     required this.flowSpeed,
     required this.accent,
     this.count = 52,
-  }) : _streaks = _build(count);
+  }) : _streaks = count == 52 ? _defaultStreaks : _build(math.max(0, count));
 
   final double distance;
   final double flowSpeed;
   final Color accent;
   final int count;
   final List<_Streak> _streaks;
+
+  static final List<_Streak> _defaultStreaks = _build(52);
 
   static List<_Streak> _build(int n) {
     return List.generate(n, (i) {
@@ -49,7 +49,6 @@ class WindRushPainter extends CustomPainter {
         length: 0.05 + r.nextDouble() * 0.12,
         thickness: 0.6 + r.nextDouble() * 1.6,
         layer: r.nextInt(3),
-        seed: i,
       );
     });
   }
@@ -62,11 +61,13 @@ class WindRushPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final rush = flowSpeed.clamp(0.0, 1.4);
-    if (rush < 0.02) return;
+    if (rush < 0.02 || _streaks.isEmpty) return;
 
     final density = (0.35 + rush * 0.55).clamp(0.0, 0.9);
-    final active =
-        (_streaks.length * density).round().clamp(4, _streaks.length);
+    final active = (_streaks.length * density).round().clamp(
+      0,
+      _streaks.length,
+    );
     const layerMul = [0.55, 1.0, 1.45];
 
     for (var i = 0; i < active; i++) {
@@ -87,15 +88,19 @@ class WindRushPainter extends CustomPainter {
       final p1 = Offset(x - nd.dx * stretch * 0.12, y - nd.dy * stretch * 0.12);
       final p2 = Offset(x + nd.dx * stretch, y + nd.dy * stretch);
 
-      final alpha = (0.06 +
-              (1 - (d - 0.5).abs() * 1.4).clamp(0.0, 1.0) *
-                  (0.18 + rush * 0.55))
-          .clamp(0.04, 0.85);
+      final alpha =
+          (0.06 +
+                  (1 - (d - 0.5).abs() * 1.4).clamp(0.0, 1.0) *
+                      (0.18 + rush * 0.55))
+              .clamp(0.04, 0.85);
 
       paint
         ..strokeWidth = s.thickness * (0.45 + rush) * (0.7 + d)
-        ..color = Color.lerp(Colors.white, accent, rush * 0.22)!
-            .withValues(alpha: alpha);
+        ..color = Color.lerp(
+          Colors.white,
+          accent,
+          rush * 0.22,
+        )!.withValues(alpha: alpha);
       canvas.drawLine(p1, p2, paint);
     }
 
@@ -104,14 +109,10 @@ class WindRushPainter extends CustomPainter {
       vp,
       gR,
       Paint()
-        ..shader = ui.Gradient.radial(
-          vp,
-          gR,
-          [
-            Colors.white.withValues(alpha: 0.03 + rush * 0.08),
-            Colors.transparent,
-          ],
-        ),
+        ..shader = ui.Gradient.radial(vp, gR, [
+          Colors.white.withValues(alpha: 0.03 + rush * 0.08),
+          Colors.transparent,
+        ]),
     );
   }
 
@@ -119,6 +120,7 @@ class WindRushPainter extends CustomPainter {
   bool shouldRepaint(covariant WindRushPainter oldDelegate) {
     return oldDelegate.distance != distance ||
         oldDelegate.flowSpeed != flowSpeed ||
-        oldDelegate.accent != accent;
+        oldDelegate.accent != accent ||
+        oldDelegate.count != count;
   }
 }

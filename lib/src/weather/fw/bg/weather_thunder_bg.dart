@@ -32,11 +32,9 @@ class _WeatherThunderBgState extends State<WeatherThunderBg>
   /// 异步加载 5 张闪电图。
   Future<void> _fetchImages() async {
     weatherPrint("开始获取雷暴图片");
-    final futures = List.generate(
-      _imageCount,
-      (i) => ImageUtils.getImage('assets/weather_bg/lightning$i.webp'),
+    final images = await ImageUtils.getImages(
+      List.generate(_imageCount, (i) => 'assets/weather_bg/lightning$i.webp'),
     );
-    final images = await Future.wait(futures);
     if (!mounted) {
       for (final i in images) {
         i.dispose();
@@ -54,44 +52,57 @@ class _WeatherThunderBgState extends State<WeatherThunderBg>
   void initState() {
     super.initState();
     _setupAnimations();
-    _fetchImages();
+    _fetchImages().catchError((Object error, StackTrace stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'auto_moto_dash',
+          context: ErrorDescription('loading lightning assets'),
+        ),
+      );
+    });
   }
 
   /// 构建控制器 + 三段 alpha 动画。
   void _setupAnimations() {
-    _controller = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    )..addStatusListener((status) {
-        if (status != AnimationStatus.completed) return;
-        _controller.reset();
-        Future.delayed(const Duration(milliseconds: 50), () {
-          if (!mounted) return;
-          _resetThunderParams();
-          _controller.forward();
-        });
-      });
+    _controller =
+        AnimationController(duration: const Duration(seconds: 3), vsync: this)
+          ..addStatusListener((status) {
+            if (status != AnimationStatus.completed) return;
+            _controller.reset();
+            Future.delayed(const Duration(milliseconds: 50), () {
+              if (!mounted) return;
+              _resetThunderParams();
+              _controller.forward();
+            });
+          });
 
     // 三段闪电在不同 interval 内各自 0 → 1 → 0。
     for (int i = 0; i < _boltCount; i++) {
       final interval = _intervals[i];
-      final animation = TweenSequence<double>([
-        TweenSequenceItem(
-          tween: Tween(begin: 0.0, end: 1.0)
-              .chain(CurveTween(curve: Curves.easeIn)),
-          weight: 1,
-        ),
-        TweenSequenceItem(
-          tween: Tween(begin: 1.0, end: 0.0)
-              .chain(CurveTween(curve: Curves.easeIn)),
-          weight: 3,
-        ),
-      ]).animate(
-        CurvedAnimation(
-          parent: _controller,
-          curve: Interval(interval.$1, interval.$2, curve: Curves.ease),
-        ),
-      );
+      final animation =
+          TweenSequence<double>([
+            TweenSequenceItem(
+              tween: Tween(
+                begin: 0.0,
+                end: 1.0,
+              ).chain(CurveTween(curve: Curves.easeIn)),
+              weight: 1,
+            ),
+            TweenSequenceItem(
+              tween: Tween(
+                begin: 1.0,
+                end: 0.0,
+              ).chain(CurveTween(curve: Curves.easeIn)),
+              weight: 3,
+            ),
+          ]).animate(
+            CurvedAnimation(
+              parent: _controller,
+              curve: Interval(interval.$1, interval.$2, curve: Curves.ease),
+            ),
+          );
       animation.addListener(() {
         if (_thunderParams.length > i) {
           _thunderParams[i].alpha = animation.value;
@@ -127,12 +138,14 @@ class _WeatherThunderBgState extends State<WeatherThunderBg>
 
     if (_thunderParams.isEmpty) {
       for (var i = 0; i < _boltCount; i++) {
-        _thunderParams.add(ThunderParams(
-          _images[kRandom.nextInt(_imageCount)],
-          width,
-          height,
-          widthRatio,
-        ));
+        _thunderParams.add(
+          ThunderParams(
+            _images[kRandom.nextInt(_imageCount)],
+            width,
+            height,
+            widthRatio,
+          ),
+        );
       }
     } else {
       for (final p in _thunderParams) {
@@ -147,6 +160,18 @@ class _WeatherThunderBgState extends State<WeatherThunderBg>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final size = SizeInherited.of(context)!.size;
+    if (_thunderParams.isNotEmpty &&
+        (_thunderParams.first.width != size.width ||
+            _thunderParams.first.height != size.height)) {
+      _thunderParams.clear();
+      _state = WeatherDataState.init;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_state == WeatherDataState.init && _images.isNotEmpty) {
       _resetThunderParams();
@@ -157,6 +182,7 @@ class _WeatherThunderBgState extends State<WeatherThunderBg>
       return const SizedBox.shrink();
     }
     return CustomPaint(
+      size: Size.infinite,
       painter: ThunderPainter(_thunderParams, _controller),
     );
   }
@@ -168,7 +194,7 @@ class ThunderPainter extends CustomPainter {
   final List<ThunderParams> thunderParams;
 
   ThunderPainter(this.thunderParams, Listenable repaint)
-      : super(repaint: repaint);
+    : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {

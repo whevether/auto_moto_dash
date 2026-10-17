@@ -55,16 +55,34 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
   void initState() {
     super.initState();
     final responsiveness = widget.style == DashStyle.performance ? 18.0 : 10.0;
-    _speed = SmoothedValue(widget.telemetry.speedKmh,
-        responsiveness: responsiveness);
-    _ticker = createTicker(_onTick)..start();
+    _speed = SmoothedValue(
+      widget.telemetry.speedKmh,
+      responsiveness: responsiveness,
+      precision: 0.01,
+    );
+    _ticker = createTicker(_onTick);
+    _updateTicker();
   }
 
   @override
   void didUpdateWidget(covariant DigitalHudBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _speed.responsiveness =
-        widget.style == DashStyle.performance ? 18.0 : 10.0;
+    _speed.responsiveness = widget.style == DashStyle.performance ? 18.0 : 10.0;
+    _updateTicker();
+  }
+
+  bool get _continuous =>
+      widget.style == DashStyle.techNeon ||
+      widget.style == DashStyle.pulseBreath;
+
+  void _updateTicker() {
+    if ((_continuous || _speed.value != widget.telemetry.speedKmh) &&
+        !_ticker.isActive) {
+      _last = Duration.zero;
+      _ticker.start();
+    } else if (!_continuous && _speed.value == widget.telemetry.speedKmh) {
+      _ticker.stop();
+    }
   }
 
   void _onTick(Duration elapsed) {
@@ -75,6 +93,7 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
     _elapsedSec = elapsed.inMilliseconds / 1000.0;
     _speed.tick(widget.telemetry.speedKmh, dt.clamp(0.0, 0.05));
     setState(() {});
+    _updateTicker();
   }
 
   @override
@@ -121,121 +140,125 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
         child: Stack(
           fit: StackFit.expand,
           children: [
-          if (widget.style == DashStyle.techNeon)
-            CustomPaint(
-              painter: NeonPolygonPainter(
-                sides: 6,
-                rotation: _elapsedSec * 0.15,
-                color: _accent,
-                intensity: intensity,
+            if (widget.style == DashStyle.techNeon)
+              CustomPaint(
+                painter: NeonPolygonPainter(
+                  sides: 6,
+                  rotation: _elapsedSec * 0.15,
+                  color: _accent,
+                  intensity: intensity,
+                ),
               ),
-            ),
-          if (widget.style == DashStyle.pulseBreath)
-            CustomPaint(
-              painter: PulseRingPainter(
-                phase: _elapsedSec * (0.35 + intensity * 0.9),
-                intensity: intensity,
-                color: _accent,
+            if (widget.style == DashStyle.pulseBreath)
+              CustomPaint(
+                painter: PulseRingPainter(
+                  phase: _elapsedSec * (0.35 + intensity * 0.9),
+                  intensity: intensity,
+                  color: _accent,
+                ),
               ),
-            ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Column(
-                children: [
-                  MileageRangeStrip(
-                    telemetry: widget.telemetry,
-                    showBattery: true,
-                    showTrip: true,
-                    fontSize: 13,
-                    secondaryFontSize: 11,
-                  ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '$displaySpeed',
-                                style: TextStyle(
-                                  color: _speedColor(_speed.value),
-                                  fontSize: 96,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1,
-                                  letterSpacing: -2,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.white.withValues(
-                                          alpha: 0.35 + intensity * 0.25),
-                                      blurRadius: 24,
-                                    ),
-                                    if (widget.style == DashStyle.techNeon ||
-                                        widget.rainbowSpeed)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Column(
+                  children: [
+                    MileageRangeStrip(
+                      telemetry: widget.telemetry,
+                      showBattery: true,
+                      showTrip: true,
+                      fontSize: 13,
+                      secondaryFontSize: 11,
+                    ),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '$displaySpeed',
+                                  style: TextStyle(
+                                    color: _speedColor(_speed.value),
+                                    fontSize: 96,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1,
+                                    letterSpacing: -2,
+                                    shadows: [
                                       Shadow(
-                                        color: _speedColor(_speed.value)
-                                            .withValues(alpha: 0.55),
-                                        blurRadius: 28,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.35 + intensity * 0.25,
+                                        ),
+                                        blurRadius: 24,
                                       ),
-                                  ],
+                                      if (widget.style == DashStyle.techNeon ||
+                                          widget.rainbowSpeed)
+                                        Shadow(
+                                          color: _speedColor(_speed.value)
+                                              .withValues(alpha: 0.55),
+                                          blurRadius: 28,
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'KM/H',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: 3,
+                                Text(
+                                  'KM/H',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    letterSpacing: 3,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (widget.showVehicleOutline)
-                          Positioned(
-                            right: 0,
-                            top: 24,
-                            child: VehicleOutline(
-                              vehicleType: widget.vehicleType,
-                              tires: widget.telemetry.tirePressures,
+                              ],
                             ),
                           ),
+                          if (widget.showVehicleOutline)
+                            Positioned(
+                              right: 0,
+                              top: 24,
+                              child: VehicleOutline(
+                                vehicleType: widget.vehicleType,
+                                tires: widget.telemetry.tirePressures,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (widget.showGearSelector) ...[
+                      GearSelector(
+                        gear: widget.telemetry.gear,
+                        accent: _accent,
+                        onGearSelected: widget.onGearSelected,
+                        onGearPointerDown: widget.onGearPointerDown,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (widget.style == DashStyle.hud)
+              IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.03),
+                        Colors.transparent,
+                        Colors.white.withValues(alpha: 0.02),
                       ],
                     ),
                   ),
-                  if (widget.showGearSelector) ...[
-                    GearSelector(
-                      gear: widget.telemetry.gear,
-                      accent: _accent,
-                      onGearSelected: widget.onGearSelected,
-                      onGearPointerDown: widget.onGearPointerDown,
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          if (widget.style == DashStyle.hud)
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.03),
-                      Colors.transparent,
-                      Colors.white.withValues(alpha: 0.02),
-                    ],
-                  ),
+                  child: const SizedBox.expand(),
                 ),
-                child: const SizedBox.expand(),
               ),
-            ),
-        ],
+          ],
         ),
       ),
     );

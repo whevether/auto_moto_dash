@@ -21,11 +21,20 @@ class OverspeedShiftLights extends StatelessWidget {
     required double speedLimitKmh,
     int count = 10,
   }) {
-    if (speedLimitKmh <= 0 || speedKmh <= 0) return 0;
+    if (!speedLimitKmh.isFinite ||
+        !speedKmh.isFinite ||
+        speedLimitKmh <= 0 ||
+        speedKmh <= 0 ||
+        count <= 0) {
+      return 0;
+    }
     final start = speedLimitKmh * 0.72;
     if (speedKmh <= start) return 0;
     final max = speedLimitKmh * 1.15;
-    return (((speedKmh - start) / (max - start)) * count).ceil().clamp(0, count);
+    return (((speedKmh - start) / (max - start)) * count).ceil().clamp(
+      0,
+      count,
+    );
   }
 
   @override
@@ -38,13 +47,13 @@ class OverspeedShiftLights extends StatelessWidget {
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(litCount, (i) {
+      children: List.generate(math.max(0, litCount), (i) {
         final active = i < lit;
         final color = i < 5
             ? const Color(0xFF00E676)
             : i < 8
-                ? const Color(0xFFFFD54F)
-                : const Color(0xFFFF1744);
+            ? const Color(0xFFFFD54F)
+            : const Color(0xFFFF1744);
         return Container(
           width: 16,
           height: 6,
@@ -85,8 +94,7 @@ class OverspeedPulseOverlay extends StatelessWidget {
   final double speedLimitKmh;
   final double phase;
 
-  bool get _active =>
-      speedLimitKmh > 0 && speedKmh >= speedLimitKmh;
+  bool get _active => speedLimitKmh > 0 && speedKmh >= speedLimitKmh;
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +142,29 @@ class _OverspeedWarningLayerState extends State<OverspeedWarningLayer>
     super.initState();
     _ticker = createTicker((elapsed) {
       setState(() => _phase = elapsed.inMilliseconds / 1000.0);
-    })..start();
+    });
+    _updateTicker();
+  }
+
+  bool get _active =>
+      widget.speedKmh.isFinite &&
+      widget.speedLimitKmh.isFinite &&
+      widget.speedLimitKmh > 0 &&
+      widget.speedKmh >= widget.speedLimitKmh;
+
+  void _updateTicker() {
+    if (_active && !_ticker.isActive) {
+      _ticker.start();
+    } else if (!_active) {
+      _ticker.stop();
+      _phase = 0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant OverspeedWarningLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _updateTicker();
   }
 
   @override
@@ -171,13 +201,13 @@ class _OverspeedWarningLayerState extends State<OverspeedWarningLayer>
     return Stack(
       fit: StackFit.expand,
       children: [
+        if (lights != null && !widget.shiftLightsOnTop) lights,
         widget.child,
         OverspeedPulseOverlay(
           speedKmh: widget.speedKmh,
           speedLimitKmh: widget.speedLimitKmh,
           phase: _phase,
         ),
-        if (lights != null && !widget.shiftLightsOnTop) lights,
         if (lights != null && widget.shiftLightsOnTop) lights,
       ],
     );
@@ -206,13 +236,13 @@ class BatterySocRing extends StatelessWidget {
       height: size,
       child: CustomPaint(
         painter: _SocRingPainter(
-          percent: percent / 100,
+          percent: percent.isFinite ? percent.clamp(0, 100) / 100 : 0,
           color: color,
           strokeWidth: strokeWidth,
         ),
         child: Center(
           child: Text(
-            '${percent.round()}%',
+            '${percent.isFinite ? percent.clamp(0, 100).round() : 0}%',
             style: TextStyle(
               color: color,
               fontSize: size * 0.22,
@@ -269,6 +299,8 @@ class _SocRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SocRingPainter oldDelegate) {
-    return oldDelegate.percent != percent || oldDelegate.color != color;
+    return oldDelegate.percent != percent ||
+        oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth;
   }
 }

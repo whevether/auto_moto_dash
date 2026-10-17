@@ -19,20 +19,14 @@ class VehicleOutline extends StatelessWidget {
       width: 96,
       height: 120,
       child: CustomPaint(
-        painter: _VehicleOutlinePainter(
-          vehicleType: vehicleType,
-          tires: tires,
-        ),
+        painter: _VehicleOutlinePainter(vehicleType: vehicleType, tires: tires),
       ),
     );
   }
 }
 
 class _VehicleOutlinePainter extends CustomPainter {
-  _VehicleOutlinePainter({
-    required this.vehicleType,
-    required this.tires,
-  });
+  _VehicleOutlinePainter({required this.vehicleType, required this.tires});
 
   final VehicleType vehicleType;
   final TirePressures tires;
@@ -48,16 +42,24 @@ class _VehicleOutlinePainter extends CustomPainter {
     if (vehicleType == VehicleType.motorcycle) {
       body.addRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(size.width * 0.35, size.height * 0.18, size.width * 0.3,
-              size.height * 0.55),
+          Rect.fromLTWH(
+            size.width * 0.35,
+            size.height * 0.18,
+            size.width * 0.3,
+            size.height * 0.55,
+          ),
           const Radius.circular(8),
         ),
       );
     } else {
       body.addRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(size.width * 0.28, size.height * 0.12, size.width * 0.44,
-              size.height * 0.72),
+          Rect.fromLTWH(
+            size.width * 0.28,
+            size.height * 0.12,
+            size.width * 0.44,
+            size.height * 0.72,
+          ),
           const Radius.circular(10),
         ),
       );
@@ -93,6 +95,7 @@ class _VehicleOutlinePainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, at - Offset(tp.width / 2, tp.height / 2));
+      tp.dispose();
     }
 
     label(Offset(size.width * 0.12, size.height * 0.28), tires.frontLeft);

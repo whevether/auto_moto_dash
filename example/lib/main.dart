@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_moto_dash/auto_moto_dash.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
@@ -41,13 +43,15 @@ class _DashDemoPageState extends State<DashDemoPage>
   final FocusNode _focusNode = FocusNode();
   final DriveSimulation _drive = DriveSimulation();
 
-  DashStyle _style = DashStyle.hud;
+  DashStyle _style = DashStyle.classic;
   DashCategory _category = DashCategory.car;
-  WeatherType? _weather = WeatherType.cloudy;
-  ParticleEffect? _particle = ParticleEffect.windRush;
+  WeatherType? _weather;
+  ParticleEffect? _particle;
   bool _panelOpen = false;
   bool _rainbow = false;
   String? _gearHint;
+  Timer? _gearHintTimer;
+  double _distanceKm = 0;
 
   bool _pointerAccelerating = false;
   bool _keyAccelerating = false;
@@ -61,36 +65,38 @@ class _DashDemoPageState extends State<DashDemoPage>
       !_suppressAccel && (_pointerAccelerating || _keyAccelerating);
 
   DashTelemetry get _telemetry => DashTelemetry(
-        speedKmh: _drive.speedKmh,
-        rpm: _drive.rpm,
-        maxRpm: _drive.maxRpm,
-        redlineRpm: 7000,
-        batteryPercent: 99,
-        fuelPercent: 62,
-        coolantTempC: 90,
-        rangeKm: 462,
-        speedLimitKmh: 120,
-        odometerKm: 12345.6,
-        tripKm: 31.1,
-        outsideTempC: 0,
-        gear: _drive.gear,
-        gearNumber: _style == DashStyle.racing
-            ? (_drive.speedKmh < 1
-                ? 1
-                : (_drive.speedKmh / 40).ceil().clamp(1, 6))
-            : null,
-        tirePressures: const TirePressures(
-          frontLeft: 2.9,
-          frontRight: 2.8,
-          rearLeft: 2.9,
-          rearRight: 2.9,
-        ),
-      );
+    speedKmh: _drive.speedKmh,
+    rpm: _drive.rpm,
+    maxRpm: _drive.maxRpm,
+    redlineRpm: 7000,
+    batteryPercent: 99,
+    fuelPercent: 62,
+    coolantTempC: 90,
+    rangeKm: 462,
+    speedLimitKmh: 120,
+    odometerKm: 12345.6 + _distanceKm,
+    tripKm: 31.1 + _distanceKm,
+    outsideTempC: 0,
+    gear: _drive.gear,
+    parkingBrake: _drive.gear == Gear.park,
+    gearNumber:
+        (_style == DashStyle.racing ||
+            _style == DashStyle.motoFuelTft ||
+            _style == DashStyle.motoFuelHybrid)
+        ? (_drive.speedKmh < 1 ? 1 : (_drive.speedKmh / 40).ceil().clamp(1, 6))
+        : null,
+    tirePressures: const TirePressures(
+      frontLeft: 2.9,
+      frontRight: 2.8,
+      rearLeft: 2.9,
+      rearRight: 2.9,
+    ),
+  );
 
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker(_onTick)..start();
+    _ticker = createTicker(_onTick);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
@@ -98,9 +104,17 @@ class _DashDemoPageState extends State<DashDemoPage>
 
   @override
   void dispose() {
+    _gearHintTimer?.cancel();
     _ticker.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _wakeSimulation() {
+    if (!_ticker.isActive) {
+      _lastTick = Duration.zero;
+      _ticker.start();
+    }
   }
 
   void _onTick(Duration elapsed) {
@@ -110,16 +124,25 @@ class _DashDemoPageState extends State<DashDemoPage>
     _lastTick = elapsed;
     if (dt <= 0 || dt > 0.1) return;
 
-    _drive.tick(
-      dt,
-      accelerating: _accelerating,
-      braking: _keyBraking,
-    );
-    setState(() {});
+    final previousSpeed = _drive.speedKmh;
+    final previousRpm = _drive.rpm;
+    _drive.tick(dt, accelerating: _accelerating, braking: _keyBraking);
+    _distanceKm += _drive.speedKmh * dt / 3600;
+    if (previousSpeed != _drive.speedKmh || previousRpm != _drive.rpm) {
+      setState(() {});
+    }
+    if (!_accelerating &&
+        !_keyBraking &&
+        _drive.speedKmh == 0 &&
+        _drive.rpm == _drive.idleRpm) {
+      _ticker.stop();
+    }
   }
 
   void _tryGear(Gear gear) {
+    _gearHintTimer?.cancel();
     final ok = _drive.trySetGear(gear);
+    _wakeSimulation();
     setState(() {
       _gearHint = ok
           ? null
@@ -130,7 +153,7 @@ class _DashDemoPageState extends State<DashDemoPage>
             };
     });
     if (_gearHint != null) {
-      Future<void>.delayed(const Duration(seconds: 2), () {
+      _gearHintTimer = Timer(const Duration(seconds: 2), () {
         if (mounted && _gearHint != null) {
           setState(() => _gearHint = null);
         }
@@ -140,9 +163,11 @@ class _DashDemoPageState extends State<DashDemoPage>
 
   void _shiftGear(int delta) {
     final values = Gear.values;
-    final i = values.indexOf(_drive.gear);
-    final next = (i + delta).clamp(0, values.length - 1);
-    if (next != i) _tryGear(values[next]);
+    final next = (values.indexOf(_drive.gear) + delta).clamp(
+      0,
+      values.length - 1,
+    );
+    _tryGear(values[next]);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -152,11 +177,13 @@ class _DashDemoPageState extends State<DashDemoPage>
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
       if (isDown) _keyAccelerating = true;
       if (isUp) _keyAccelerating = false;
+      _wakeSimulation();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       if (isDown) _keyBraking = true;
       if (isUp) _keyBraking = false;
+      _wakeSimulation();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
@@ -188,6 +215,13 @@ class _DashDemoPageState extends State<DashDemoPage>
       body: Focus(
         focusNode: _focusNode,
         autofocus: true,
+        onFocusChange: (focused) {
+          if (!focused) {
+            _keyAccelerating = false;
+            _keyBraking = false;
+            _pointerAccelerating = false;
+          }
+        },
         onKeyEvent: _onKey,
         child: Stack(
           fit: StackFit.expand,
@@ -197,6 +231,7 @@ class _DashDemoPageState extends State<DashDemoPage>
               onPointerDown: (_) {
                 if (_panelOpen || _suppressAccel) return;
                 setState(() => _pointerAccelerating = true);
+                _wakeSimulation();
               },
               onPointerUp: (_) => setState(() {
                 _pointerAccelerating = false;
@@ -215,8 +250,8 @@ class _DashDemoPageState extends State<DashDemoPage>
                     ? VehicleType.car
                     : VehicleType.motorcycle,
                 lightSpeedThresholdKmh: 80,
-                showVehicleOutline: _style.isDigitalHud &&
-                    _category == DashCategory.car,
+                showVehicleOutline:
+                    _style.isDigitalHud && _category == DashCategory.car,
                 rainbowSpeed: _rainbow,
                 onGearSelected: _tryGear,
                 onGearPointerDown: () {
@@ -282,7 +317,7 @@ class _DashDemoPageState extends State<DashDemoPage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '按住加速 · 点击P/R/N/D或←→换档 · ${_drive.speedKmh.round()} km/h · ${_drive.gear.label}',
+                        '按住加速 · ↑↓油门/刹车 · ←→换档',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.45),
                           fontSize: 11,

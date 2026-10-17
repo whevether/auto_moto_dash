@@ -31,14 +31,6 @@ class GearSelector extends StatelessWidget {
             color: active ? accent : Colors.white.withValues(alpha: 0.85),
             fontSize: active ? 28 : 22,
             fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-            shadows: active
-                ? [
-                    Shadow(
-                      color: accent.withValues(alpha: 0.9),
-                      blurRadius: 16,
-                    ),
-                  ]
-                : null,
           ),
         );
 
@@ -60,8 +52,10 @@ class GearSelector extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onPointerDown: (_) => onGearPointerDown?.call(),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: label,
                 ),
               ),

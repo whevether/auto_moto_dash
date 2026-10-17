@@ -1,17 +1,33 @@
 # auto_moto_dash
 
-摩托车 / 汽车仪表盘 **Flutter 纯 Dart 包**：数字 HUD、科技风宝马 / 法拉利指针集群、天气背景与多种粒子动效。无平台 Channel，可直接嵌入任意 Flutter 应用。
+摩托车 / 汽车仪表盘 **Flutter 纯 Dart 包**：数字 HUD、量产车型设计语言仪表、天气背景与多种粒子动效。无平台 Channel，可直接嵌入任意 Flutter 应用。
 
 [English](README.md)
 
 ## 特性
 
-- 13 套互斥主题：4 套数字 HUD + 宝马双圆表 + 法拉利主转速表 + 特斯拉/蔚来/理想电车 + 4 款摩托车表盘（2 燃油 + 2 电动）
+- 13 套互斥主题：4 套数字 HUD + BMW 3系双圆表 + Ferrari 458 黄色中央转速表 + 特斯拉/蔚来/理想电车 + 4 款摩托车表盘（2 燃油 + 2 电动）
 - 可选天气背景（晴雨雪雾霾等，基于内嵌 [flutter_weather_bg](https://github.com/xiaweizi/flutter_weather_bg)）
 - 5 种互斥粒子动效，流速随车速惯性变化（加速跟得快、减速缓落）
 - `DriveSimulation`：演示用 PRND 驾驶模型（档位互锁、滑行、倒车限速）
-- 汽车主题统一法拉利风格超速警告（`speedLimitKmh` 触发换挡灯 + 红色脉冲）
+- 量产主题超速时车速数字变红；赛车换挡灯由转速驱动，数字 HUD 保留原有超速光效
 - 全部主题显示总里程（ODO）与剩余续航（rangeKm）；电车主题显示电量
+
+## 量产风格仪表
+
+默认主题为 `DashStyle.classic`，天气与粒子默认关闭。9 套量产主题的仪表屏幕保持不透明，按物理比例等比缩放；竖屏保留留白，建议横屏体验。4 套数字 HUD 保留原有特效风格。示例应用采用相同默认值。
+
+各主题为参考量产仪表结构的独立绘制，非原厂逐像素复刻。电车中央道路为静态装饰示意，不代表真实车道感知或辅助驾驶状态。
+
+新增宿主控制指示灯：`leftIndicator`、`rightIndicator`、`highBeam`、`parkingBrake`、`engineWarning`，默认均为 `false`，支持 `copyWith`。仅赛车和燃油摩托在 D 档接受 `gearNumber`；电车显示 PRND。
+
+## 依赖与验证
+
+版本 **0.5.0** 要求 **Dart 3.13+ / Flutter 3.47+**，依赖 `material_ui ^1.7.0`；示例应用版本为 `1.1.0+2`。Flutter SDK 管理的 `material_color_utilities 0.13.0`、`test_api 0.7.12` 仍保持 SDK 固定版本，需随 SDK 更新，未强制覆盖。
+
+`AutoMotoDashboard` 会在渲染前规范化非有限遥测、将油量/电量限制在 0–100%、将负车速显示为绝对值，转速量程限制在 1,000–30,000 RPM。原始遥测不会被修改，可显式调用 `normalized()` 查看规范化结果。用 `copyWith(clearGearNumber: true)` 清除手动档位。
+
+主包执行 `flutter analyze`、`flutter test --coverage`；示例目录执行 `flutter test`。Android 使用 AGP 9.4.1、Gradle 9.8.1、内置 Kotlin 2.4.21 和 NDK 30.0.16248370。
 
 ## 安装
 
@@ -38,9 +54,7 @@ AutoMotoDashboard(
     rangeKm: 462,
     gear: Gear.drive,
   ),
-  style: DashStyle.hud,
-  weather: WeatherType.heavyRain,
-  particleEffect: ParticleEffect.windRush,
+  style: DashStyle.classic,
   vehicleType: VehicleType.car,
   lightSpeedThresholdKmh: 80,
   onGearSelected: (g) { /* 建议配合 DriveSimulation.trySetGear */ },
@@ -54,9 +68,9 @@ AutoMotoDashboard(
 | 参数 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `telemetry` | `DashTelemetry` | 必填 | 宿主遥测（车速、转速、电量等） |
-| `style` | `DashStyle` | `hud` | 视觉主题（互斥） |
+| `style` | `DashStyle` | `classic` | 视觉主题（互斥） |
 | `weather` | `WeatherType?` | `null` | 天气；`null` 关闭 |
-| `particleEffect` | `ParticleEffect?` | `windRush` | 粒子；传 `null` 关闭 |
+| `particleEffect` | `ParticleEffect?` | `null` | 粒子；按需开启 |
 | `vehicleType` | `VehicleType` | `car` | 轿车 / 摩托轮廓 |
 | `lightSpeedThresholdKmh` | `double` | `80` | 粒子「全速」参考车速 |
 | `showGearSelector` | `bool` | `true` | 显示 P/R/N/D |
@@ -80,15 +94,15 @@ AutoMotoDashboard(
 | `hud` | 汽车 | 透明悬浮 HUD |
 | `performance` | 汽车 | 高刷新流畅过渡 |
 | `pulseBreath` | 汽车 | 脉冲呼吸光效 |
-| `classic` | 汽车 | 宝马科技风双圆仪表 |
-| `racing` | 汽车 | 法拉利赛博风主转速表 |
+| `classic` | 汽车 | BMW 3系机械双表 |
+| `racing` | 汽车 | Ferrari 458 黄色中央转速表 |
 | `carEvTesla` | 汽车 | 特斯拉电车（电量 + 续航） |
 | `carEvNio` | 汽车 | 蔚来电车（环形电量） |
 | `carEvLi` | 汽车 | 理想电车（宽屏 HUD） |
-| `motoFuelTft` | 摩托 | 燃油摩托全 TFT |
-| `motoFuelHybrid` | 摩托 | 燃油摩托指针 + TFT |
-| `motoEvNiu` | 摩托 | 小牛电动（电量） |
-| `motoEvYadea` | 摩托 | 雅迪电动（电量） |
+| `motoFuelTft` | 摩托 | BMW Motorrad Pure Ride 风格 TFT |
+| `motoFuelHybrid` | 摩托 | Honda 风格指针 + LCD |
+| `motoEvNiu` | 摩托 | NIU 风格负显段码液晶 |
+| `motoEvYadea` | 摩托 | 雅迪风格正显段码液晶 |
 
 `style.isDigital` / `style.isAnalog` / `style.isElectric` / `style.label` 可直接用于 UI 文案。
 
@@ -96,7 +110,7 @@ AutoMotoDashboard(
 
 | ParticleEffect | 说明 |
 |---|---|
-| `windRush` | 车外风驰（默认） |
+| `windRush` | 车外风驰（可选） |
 | `blackHole` | 黑洞穿越 |
 | `starTunnel` | 星门隧道 |
 | `roadTrack` | 道路赛道（透视路面 + 路缘 / 中线，天空透明） |

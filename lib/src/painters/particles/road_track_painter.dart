@@ -92,8 +92,8 @@ class RoadTrackPainter extends CustomPainter {
       canvas.drawLine(Offset(vp.dx, y0), Offset(vp.dx, y1), dashPaint);
     }
 
-    final postPaint =
-        Paint()..color = accent.withValues(alpha: 0.35 + rush * 0.25);
+    final postPaint = Paint()
+      ..color = accent.withValues(alpha: 0.35 + rush * 0.25);
     for (final side in [-1.0, 1.0]) {
       for (var i = 0; i < 5; i++) {
         final t = ((i / 5) + scroll * 0.7) % 1.0;
@@ -110,14 +110,10 @@ class RoadTrackPainter extends CustomPainter {
       vp,
       28 + rush * 20,
       Paint()
-        ..shader = ui.Gradient.radial(
-          vp,
-          40 + rush * 24,
-          [
-            Colors.white.withValues(alpha: 0.06 + rush * 0.08),
-            Colors.transparent,
-          ],
-        ),
+        ..shader = ui.Gradient.radial(vp, 40 + rush * 24, [
+          Colors.white.withValues(alpha: 0.06 + rush * 0.08),
+          Colors.transparent,
+        ]),
     );
   }
 

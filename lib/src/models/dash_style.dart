@@ -1,8 +1,5 @@
 /// Vehicle category for dashboard themes.
-enum DashCategory {
-  car,
-  motorcycle,
-}
+enum DashCategory { car, motorcycle }
 
 /// Mutually exclusive dashboard visual styles.
 enum DashStyle {
@@ -33,16 +30,16 @@ enum DashStyle {
   /// Li Auto-inspired EV cluster.
   carEvLi,
 
-  /// Fuel motorcycle full TFT (reference image 1).
+  /// BMW Motorrad Pure Ride-inspired fuel motorcycle TFT.
   motoFuelTft,
 
-  /// Fuel motorcycle analog tach + digital TFT (reference image 2).
+  /// Honda-inspired analog tachometer and LCD combination.
   motoFuelHybrid,
 
-  /// NIU NXT electric scooter cluster (reference image 3).
+  /// NIU-inspired negative LCD scooter cluster.
   motoEvNiu,
 
-  /// Yadea E9 electric cluster (reference image 4).
+  /// Yadea-inspired positive LCD scooter cluster.
   motoEvYadea,
 }
 
@@ -50,43 +47,39 @@ extension DashStyleX on DashStyle {
   bool get isMotorcycle => category == DashCategory.motorcycle;
 
   DashCategory get category => switch (this) {
-        DashStyle.motoFuelTft ||
-        DashStyle.motoFuelHybrid ||
-        DashStyle.motoEvNiu ||
-        DashStyle.motoEvYadea =>
-          DashCategory.motorcycle,
-        _ => DashCategory.car,
-      };
+    DashStyle.motoFuelTft ||
+    DashStyle.motoFuelHybrid ||
+    DashStyle.motoEvNiu ||
+    DashStyle.motoEvYadea => DashCategory.motorcycle,
+    _ => DashCategory.car,
+  };
 
   bool get isElectric => switch (this) {
-        DashStyle.carEvTesla ||
-        DashStyle.carEvNio ||
-        DashStyle.carEvLi ||
-        DashStyle.motoEvNiu ||
-        DashStyle.motoEvYadea =>
-          true,
-        _ => false,
-      };
+    DashStyle.carEvTesla ||
+    DashStyle.carEvNio ||
+    DashStyle.carEvLi ||
+    DashStyle.motoEvNiu ||
+    DashStyle.motoEvYadea => true,
+    _ => false,
+  };
 
   bool get isCarEv => switch (this) {
-        DashStyle.carEvTesla ||
-        DashStyle.carEvNio ||
-        DashStyle.carEvLi =>
-          true,
-        _ => false,
-      };
+    DashStyle.carEvTesla || DashStyle.carEvNio || DashStyle.carEvLi => true,
+    _ => false,
+  };
 
   bool get isDigitalHud => switch (this) {
-        DashStyle.techNeon ||
-        DashStyle.hud ||
-        DashStyle.performance ||
-        DashStyle.pulseBreath =>
-          true,
-        _ => false,
-      };
+    DashStyle.techNeon ||
+    DashStyle.hud ||
+    DashStyle.performance ||
+    DashStyle.pulseBreath => true,
+    _ => false,
+  };
 
   bool get isDigital =>
-      isDigitalHud || isCarEv || isMotorcycle && this != DashStyle.motoFuelHybrid;
+      isDigitalHud ||
+      isCarEv ||
+      isMotorcycle && this != DashStyle.motoFuelHybrid;
 
   bool get isAnalog =>
       this == DashStyle.classic ||
@@ -98,23 +91,23 @@ extension DashStyleX on DashStyle {
   }
 
   static DashStyle defaultFor(DashCategory category) => switch (category) {
-        DashCategory.car => DashStyle.hud,
-        DashCategory.motorcycle => DashStyle.motoFuelTft,
-      };
+    DashCategory.car => DashStyle.classic,
+    DashCategory.motorcycle => DashStyle.motoFuelTft,
+  };
 
   String get label => switch (this) {
-        DashStyle.techNeon => '科技霓虹',
-        DashStyle.hud => 'HUD',
-        DashStyle.performance => '高性能',
-        DashStyle.pulseBreath => '脉冲呼吸',
-        DashStyle.classic => '宝马风格',
-        DashStyle.racing => '法拉利风格',
-        DashStyle.carEvTesla => '特斯拉',
-        DashStyle.carEvNio => '蔚来',
-        DashStyle.carEvLi => '理想',
-        DashStyle.motoFuelTft => '燃油摩托 TFT',
-        DashStyle.motoFuelHybrid => '燃油摩托混合',
-        DashStyle.motoEvNiu => '小牛电动',
-        DashStyle.motoEvYadea => '雅迪电动',
-      };
+    DashStyle.techNeon => '科技霓虹',
+    DashStyle.hud => 'HUD',
+    DashStyle.performance => '高性能',
+    DashStyle.pulseBreath => '脉冲呼吸',
+    DashStyle.classic => 'BMW 3系 · 机械双表',
+    DashStyle.racing => 'Ferrari 458 · 中央黄表',
+    DashStyle.carEvTesla => 'Tesla Model S · 宽屏',
+    DashStyle.carEvNio => 'NIO ET7 · 极简仪表',
+    DashStyle.carEvLi => '理想 L9 · 信息宽屏',
+    DashStyle.motoFuelTft => 'BMW Motorrad · Pure Ride',
+    DashStyle.motoFuelHybrid => 'Honda 风格 · 指针＋LCD',
+    DashStyle.motoEvNiu => 'NIU 风格 · 负显液晶',
+    DashStyle.motoEvYadea => '雅迪风格 · 正显液晶',
+  };
 }

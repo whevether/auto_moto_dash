@@ -14,6 +14,30 @@ class TirePressures {
   final double rearLeft;
   final double rearRight;
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TirePressures &&
+          frontLeft == other.frontLeft &&
+          frontRight == other.frontRight &&
+          rearLeft == other.rearLeft &&
+          rearRight == other.rearRight;
+
+  @override
+  int get hashCode =>
+      Object.hashAll([frontLeft, frontRight, rearLeft, rearRight]);
+
+  /// Finite, nonnegative pressures for instrument rendering.
+  TirePressures normalized() {
+    final result = TirePressures(
+      frontLeft: _nonnegative(frontLeft),
+      frontRight: _nonnegative(frontRight),
+      rearLeft: _nonnegative(rearLeft),
+      rearRight: _nonnegative(rearRight),
+    );
+    return result == this ? this : result;
+  }
+
   TirePressures copyWith({
     double? frontLeft,
     double? frontRight,
@@ -47,6 +71,11 @@ class DashTelemetry {
     this.gear = Gear.park,
     this.gearNumber,
     this.tirePressures = const TirePressures(),
+    this.leftIndicator = false,
+    this.rightIndicator = false,
+    this.highBeam = false,
+    this.parkingBrake = false,
+    this.engineWarning = false,
   });
 
   /// Vehicle speed in km/h.
@@ -92,6 +121,89 @@ class DashTelemetry {
   final int? gearNumber;
   final TirePressures tirePressures;
 
+  /// Host-controlled telltales; never fabricated from speed or demo timing.
+  final bool leftIndicator;
+  final bool rightIndicator;
+  final bool highBeam;
+  final bool parkingBrake;
+  final bool engineWarning;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DashTelemetry &&
+          speedKmh == other.speedKmh &&
+          rpm == other.rpm &&
+          maxRpm == other.maxRpm &&
+          redlineRpm == other.redlineRpm &&
+          batteryPercent == other.batteryPercent &&
+          fuelPercent == other.fuelPercent &&
+          coolantTempC == other.coolantTempC &&
+          rangeKm == other.rangeKm &&
+          odometerKm == other.odometerKm &&
+          tripKm == other.tripKm &&
+          outsideTempC == other.outsideTempC &&
+          speedLimitKmh == other.speedLimitKmh &&
+          gear == other.gear &&
+          gearNumber == other.gearNumber &&
+          tirePressures == other.tirePressures &&
+          leftIndicator == other.leftIndicator &&
+          rightIndicator == other.rightIndicator &&
+          highBeam == other.highBeam &&
+          parkingBrake == other.parkingBrake &&
+          engineWarning == other.engineWarning;
+
+  @override
+  int get hashCode => Object.hashAll([
+    speedKmh,
+    rpm,
+    maxRpm,
+    redlineRpm,
+    batteryPercent,
+    fuelPercent,
+    coolantTempC,
+    rangeKm,
+    odometerKm,
+    tripKm,
+    outsideTempC,
+    speedLimitKmh,
+    gear,
+    gearNumber,
+    tirePressures,
+    leftIndicator,
+    rightIndicator,
+    highBeam,
+    parkingBrake,
+    engineWarning,
+  ]);
+
+  /// Returns finite, renderable values without changing host telemetry.
+  /// Negative speeds display their magnitude; invalid levels fall back to zero.
+  /// Valid instances retain their identity so static painters can skip work.
+  DashTelemetry normalized() {
+    final scale = maxRpm.isFinite && maxRpm > 0
+        ? maxRpm.clamp(1000.0, 30000.0)
+        : 8000.0;
+    final result = copyWith(
+      speedKmh: speedKmh.isFinite ? speedKmh.abs().clamp(0, 999) : 0,
+      rpm: _nonnegative(rpm).clamp(0, scale),
+      maxRpm: scale,
+      redlineRpm: _finite(redlineRpm, scale).clamp(0, scale),
+      batteryPercent: _nonnegative(batteryPercent).clamp(0, 100),
+      fuelPercent: _nonnegative(fuelPercent).clamp(0, 100),
+      coolantTempC: _finite(coolantTempC, 90),
+      rangeKm: _nonnegative(rangeKm),
+      odometerKm: _nonnegative(odometerKm),
+      tripKm: _nonnegative(tripKm),
+      outsideTempC: _finite(outsideTempC, 20),
+      speedLimitKmh: _nonnegative(speedLimitKmh),
+      clearGearNumber:
+          gearNumber != null && (gearNumber! < 1 || gearNumber! > 6),
+      tirePressures: tirePressures.normalized(),
+    );
+    return result == this ? this : result;
+  }
+
   DashTelemetry copyWith({
     double? speedKmh,
     double? rpm,
@@ -107,7 +219,13 @@ class DashTelemetry {
     double? speedLimitKmh,
     Gear? gear,
     int? gearNumber,
+    bool clearGearNumber = false,
     TirePressures? tirePressures,
+    bool? leftIndicator,
+    bool? rightIndicator,
+    bool? highBeam,
+    bool? parkingBrake,
+    bool? engineWarning,
   }) {
     return DashTelemetry(
       speedKmh: speedKmh ?? this.speedKmh,
@@ -123,8 +241,18 @@ class DashTelemetry {
       outsideTempC: outsideTempC ?? this.outsideTempC,
       speedLimitKmh: speedLimitKmh ?? this.speedLimitKmh,
       gear: gear ?? this.gear,
-      gearNumber: gearNumber ?? this.gearNumber,
+      gearNumber: clearGearNumber ? null : gearNumber ?? this.gearNumber,
       tirePressures: tirePressures ?? this.tirePressures,
+      leftIndicator: leftIndicator ?? this.leftIndicator,
+      rightIndicator: rightIndicator ?? this.rightIndicator,
+      highBeam: highBeam ?? this.highBeam,
+      parkingBrake: parkingBrake ?? this.parkingBrake,
+      engineWarning: engineWarning ?? this.engineWarning,
     );
   }
 }
+
+double _finite(double value, double fallback) =>
+    value.isFinite ? value : fallback;
+
+double _nonnegative(double value) => value.isFinite && value > 0 ? value : 0;

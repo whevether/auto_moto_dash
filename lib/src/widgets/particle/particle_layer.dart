@@ -78,40 +78,37 @@ class _ParticleLayerState extends State<ParticleLayer>
   Widget build(BuildContext context) {
     final painter = switch (widget.effect) {
       ParticleEffect.windRush => WindRushPainter(
-          distance: _distance,
-          flowSpeed: _flowSpeed,
-          accent: widget.accent,
-        ),
+        distance: _distance,
+        flowSpeed: _flowSpeed,
+        accent: widget.accent,
+      ),
       ParticleEffect.blackHole => BlackHolePainter(
-          distance: _distance,
-          flowSpeed: _flowSpeed,
-          accent: widget.accent,
-        ),
+        distance: _distance,
+        flowSpeed: _flowSpeed,
+        accent: widget.accent,
+      ),
       ParticleEffect.starTunnel => StarTunnelPainter(
-          distance: _distance,
-          flowSpeed: _flowSpeed,
-          accent: widget.accent,
-        ),
+        distance: _distance,
+        flowSpeed: _flowSpeed,
+        accent: widget.accent,
+      ),
       ParticleEffect.roadTrack => RoadTrackPainter(
-          distance: _distance,
-          flowSpeed: _flowSpeed,
-          accent: widget.accent,
-        ),
+        distance: _distance,
+        flowSpeed: _flowSpeed,
+        accent: widget.accent,
+      ),
       ParticleEffect.ionStorm => IonStormPainter(
-          distance: _distance,
-          flowSpeed: _flowSpeed,
-          accent: widget.accent,
-        ),
+        distance: _distance,
+        flowSpeed: _flowSpeed,
+        accent: widget.accent,
+      ),
     };
 
     return IgnorePointer(
       child: Opacity(
         opacity: widget.opacity.clamp(0.0, 1.0),
         child: RepaintBoundary(
-          child: CustomPaint(
-            painter: painter,
-            size: Size.infinite,
-          ),
+          child: CustomPaint(painter: painter, size: Size.infinite),
         ),
       ),
     );

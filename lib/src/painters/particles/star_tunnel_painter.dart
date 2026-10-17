@@ -7,19 +7,19 @@ class StarTunnelPainter extends CustomPainter {
     required this.distance,
     required this.flowSpeed,
     required this.accent,
-  }) : _stars = List.generate(48, (i) {
-          final r = math.Random(i * 4243 + 11);
-          return _Star(
-            r.nextDouble() * math.pi * 2,
-            r.nextDouble(),
-            0.7 + r.nextDouble() * 2.0,
-          );
-        });
+  });
 
   final double distance;
   final double flowSpeed;
   final Color accent;
-  final List<_Star> _stars;
+  static final List<_Star> _stars = List.generate(48, (i) {
+    final r = math.Random(i * 4243 + 11);
+    return _Star(
+      r.nextDouble() * math.pi * 2,
+      r.nextDouble(),
+      0.7 + r.nextDouble() * 2.0,
+    );
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -29,8 +29,10 @@ class StarTunnelPainter extends CustomPainter {
     if (rush < 0.02) return;
 
     final paint = Paint();
-    final active =
-        (_stars.length * (0.4 + rush * 0.5)).round().clamp(8, _stars.length);
+    final active = (_stars.length * (0.4 + rush * 0.5)).round().clamp(
+      8,
+      _stars.length,
+    );
 
     for (var i = 0; i < active; i++) {
       final s = _stars[i];
@@ -50,8 +52,11 @@ class StarTunnelPainter extends CustomPainter {
             ..color = Colors.white.withValues(alpha: 0.12 + d * 0.4 * rush),
         );
       }
-      paint.color = Color.lerp(Colors.white, accent, rush * 0.25)!
-          .withValues(alpha: 0.18 + d * 0.6);
+      paint.color = Color.lerp(
+        Colors.white,
+        accent,
+        rush * 0.25,
+      )!.withValues(alpha: 0.18 + d * 0.6);
       canvas.drawCircle(p, s.size * (0.4 + d * 0.85), paint);
     }
   }
@@ -59,7 +64,8 @@ class StarTunnelPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant StarTunnelPainter oldDelegate) {
     return oldDelegate.distance != distance ||
-        oldDelegate.flowSpeed != flowSpeed;
+        oldDelegate.flowSpeed != flowSpeed ||
+        oldDelegate.accent != accent;
   }
 }
 

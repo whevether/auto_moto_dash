@@ -7,29 +7,31 @@ class IonStormPainter extends CustomPainter {
     required this.distance,
     required this.flowSpeed,
     required this.accent,
-  }) : _ions = List.generate(32, (i) {
-          final r = math.Random(i * 3331 + 5);
-          return _Ion(
-            r.nextDouble(),
-            r.nextDouble(),
-            r.nextDouble() * math.pi * 2,
-            0.5 + r.nextDouble() * 1.5,
-            HSVColor.fromAHSV(1, r.nextDouble() * 360, 0.7, 1).toColor(),
-          );
-        });
+  });
 
   final double distance;
   final double flowSpeed;
   final Color accent;
-  final List<_Ion> _ions;
+  static final List<_Ion> _ions = List.generate(32, (i) {
+    final r = math.Random(i * 3331 + 5);
+    return _Ion(
+      r.nextDouble(),
+      r.nextDouble(),
+      r.nextDouble() * math.pi * 2,
+      0.5 + r.nextDouble() * 1.5,
+      HSVColor.fromAHSV(1, r.nextDouble() * 360, 0.7, 1).toColor(),
+    );
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final rush = flowSpeed.clamp(0.0, 1.3);
     if (rush < 0.02) return;
 
-    final active =
-        (_ions.length * (0.4 + rush * 0.5)).round().clamp(6, _ions.length);
+    final active = (_ions.length * (0.4 + rush * 0.5)).round().clamp(
+      6,
+      _ions.length,
+    );
 
     for (var i = 0; i < active; i++) {
       final ion = _ions[i];
@@ -62,10 +64,12 @@ class IonStormPainter extends CustomPainter {
 
     if (rush > 0.5 && math.sin(distance * 9) > 0.96) {
       final r = math.Random((distance * 8).floor());
-      final a =
-          Offset(r.nextDouble() * size.width, r.nextDouble() * size.height);
-      final b = a +
-          Offset((r.nextDouble() - 0.5) * 100, (r.nextDouble() - 0.5) * 70);
+      final a = Offset(
+        r.nextDouble() * size.width,
+        r.nextDouble() * size.height,
+      );
+      final b =
+          a + Offset((r.nextDouble() - 0.5) * 100, (r.nextDouble() - 0.5) * 70);
       canvas.drawLine(
         a,
         b,
@@ -80,7 +84,8 @@ class IonStormPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant IonStormPainter oldDelegate) {
     return oldDelegate.distance != distance ||
-        oldDelegate.flowSpeed != flowSpeed;
+        oldDelegate.flowSpeed != flowSpeed ||
+        oldDelegate.accent != accent;
   }
 }
 

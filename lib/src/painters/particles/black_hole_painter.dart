@@ -59,8 +59,11 @@ class BlackHolePainter extends CustomPainter {
       }
       armPaint
         ..strokeWidth = 1.4 + rush * 1.6
-        ..color = Color.lerp(accent, Colors.white, 0.3)!
-            .withValues(alpha: 0.22 + rush * 0.35);
+        ..color = Color.lerp(
+          accent,
+          Colors.white,
+          0.3,
+        )!.withValues(alpha: 0.22 + rush * 0.35);
       canvas.drawPath(path, armPaint);
     }
 
@@ -80,8 +83,9 @@ class BlackHolePainter extends CustomPainter {
           c + Offset(math.cos(baseAng) * outer, math.sin(baseAng) * outer);
       streak
         ..strokeWidth = 0.7 + d * 1.6
-        ..color = Colors.white
-            .withValues(alpha: (0.08 + (1 - d) * 0.4) * (0.35 + rush * 0.5));
+        ..color = Colors.white.withValues(
+          alpha: (0.08 + (1 - d) * 0.4) * (0.35 + rush * 0.5),
+        );
       canvas.drawLine(p1, p2, streak);
     }
 
@@ -101,6 +105,7 @@ class BlackHolePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant BlackHolePainter oldDelegate) {
     return oldDelegate.distance != distance ||
-        oldDelegate.flowSpeed != flowSpeed;
+        oldDelegate.flowSpeed != flowSpeed ||
+        oldDelegate.accent != accent;
   }
 }

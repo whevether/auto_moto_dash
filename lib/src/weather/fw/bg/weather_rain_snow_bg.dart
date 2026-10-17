@@ -4,7 +4,6 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
-import 'package:auto_moto_dash/src/weather/fw/bg/weather_bg.dart';
 import 'package:auto_moto_dash/src/weather/fw/utils/constants.dart';
 import 'package:auto_moto_dash/src/weather/fw/utils/image_utils.dart';
 import 'package:auto_moto_dash/src/weather/fw/utils/print_utils.dart';
@@ -34,12 +33,17 @@ class _WeatherRainSnowBgState extends State<WeatherRainSnowBg>
   late final AnimationController _controller;
   final List<RainSnowParams> _rainSnows = [];
   WeatherDataState _state = WeatherDataState.init;
+  Duration _lastFrame = Duration.zero;
 
   /// 异步加载雨 / 雪图片。
   Future<void> _fetchImages() async {
     weatherPrint("开始获取雨雪图片");
-    final rain = await ImageUtils.getImage('assets/weather_bg/rain.webp');
-    final snow = await ImageUtils.getImage('assets/weather_bg/snow.webp');
+    final images = await ImageUtils.getImages([
+      'assets/weather_bg/rain.webp',
+      'assets/weather_bg/snow.webp',
+    ]);
+    final rain = images[0];
+    final snow = images[1];
     if (!mounted) {
       rain.dispose();
       snow.dispose();
@@ -47,32 +51,33 @@ class _WeatherRainSnowBgState extends State<WeatherRainSnowBg>
     }
     _rainImage = rain;
     _snowImage = snow;
-    _state = WeatherDataState.init;
     setState(() {});
   }
 
   /// 根据当前 size 初始化雨 / 雪粒子参数。
   void _initParams() {
     _state = WeatherDataState.loading;
-    if (widget.viewWidth != 0 &&
-        widget.viewHeight != 0 &&
-        _rainSnows.isEmpty) {
+    if (widget.viewWidth > 0 && widget.viewHeight > 0 && _rainSnows.isEmpty) {
       if (WeatherUtil.isSnowRain(widget.weatherType)) {
         final count = _particleCountFor(widget.weatherType);
-        final size = SizeInherited.of(context)!.size;
-        final widthRatio = size.width / kDesignWidth;
-        final heightRatio = size.height / kDesignHeight;
+        final widthRatio = widget.viewWidth / kDesignWidth;
+        final heightRatio = widget.viewHeight / kDesignHeight;
         for (int i = 0; i < count; i++) {
           _rainSnows.add(
-            RainSnowParams(widget.viewWidth, widget.viewHeight,
-                widget.weatherType)
-              ..init(widthRatio, heightRatio),
+            RainSnowParams(
+              widget.viewWidth,
+              widget.viewHeight,
+              widget.weatherType,
+            )..init(widthRatio, heightRatio),
           );
         }
         weatherPrint("初始化雨参数成功 ${_rainSnows.length}");
       }
     }
-    _controller.forward();
+    if (!_controller.isAnimating) {
+      _lastFrame = Duration.zero;
+      _controller.repeat();
+    }
     _state = WeatherDataState.finish;
   }
 
@@ -113,10 +118,47 @@ class _WeatherRainSnowBgState extends State<WeatherRainSnowBg>
     _controller = AnimationController(
       duration: const Duration(minutes: 1),
       vsync: this,
-    )..addStatusListener((status) {
-        if (status == AnimationStatus.completed) _controller.repeat();
-      });
-    _fetchImages();
+    )..addListener(_advance);
+    _fetchImages().catchError((Object error, StackTrace stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'auto_moto_dash',
+          context: ErrorDescription('loading weather assets'),
+        ),
+      );
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_state == WeatherDataState.init) _initParams();
+  }
+
+  void _advance() {
+    final elapsed = _controller.lastElapsedDuration ?? Duration.zero;
+    final frames =
+        ((elapsed - _lastFrame).inMicroseconds / 1e6).clamp(0, 0.05) * 60;
+    _lastFrame = elapsed;
+    final snow = WeatherUtil.isSnow(widget.weatherType);
+    for (final p in _rainSnows) {
+      p.y += p.speed * frames;
+      if (snow) {
+        p.x +=
+            sin(p.y / (300 + 50 * p.alpha)) *
+            (1 + 0.5 * p.alpha) *
+            p.widthRatio *
+            frames;
+      }
+      if (p.y > p.height / p.scale) {
+        p.y = snow
+            ? -p.height * p.scale
+            : -(_rainImage?.height.toDouble() ?? 0);
+        p.reset();
+      }
+    }
   }
 
   @override
@@ -129,11 +171,9 @@ class _WeatherRainSnowBgState extends State<WeatherRainSnowBg>
 
   @override
   Widget build(BuildContext context) {
-    if (_state == WeatherDataState.init) {
-      _initParams();
-    }
     if (_state != WeatherDataState.finish) return const SizedBox.shrink();
     return CustomPaint(
+      size: Size.infinite,
       painter: RainSnowPainter(this, _controller),
     );
   }
@@ -152,15 +192,14 @@ class RainSnowPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final weatherType = _state.widget.weatherType;
     if (WeatherUtil.isSnow(weatherType) && _state._snowImage != null) {
-      _drawParticles(canvas, _state._snowImage!, true);
+      _drawParticles(canvas, _state._snowImage!);
     } else if (WeatherUtil.isRainy(weatherType) && _state._rainImage != null) {
-      _drawParticles(canvas, _state._rainImage!, false);
+      _drawParticles(canvas, _state._rainImage!);
     }
   }
 
-  void _drawParticles(Canvas canvas, ui.Image image, bool isSnow) {
+  void _drawParticles(Canvas canvas, ui.Image image) {
     for (final p in _state._rainSnows) {
-      _move(p, isSnow);
       canvas.save();
       canvas.scale(p.scale);
       // 用 modulate + 白色 alpha 等价于 alpha-only ColorFilter，
@@ -171,22 +210,6 @@ class RainSnowPainter extends CustomPainter {
       );
       canvas.drawImage(image, Offset(p.x, p.y), _paint);
       canvas.restore();
-    }
-  }
-
-  void _move(RainSnowParams p, bool isSnow) {
-    p.y += p.speed;
-    if (isSnow) {
-      final offsetX =
-          sin(p.y / (300 + 50 * p.alpha)) * (1 + 0.5 * p.alpha) * p.widthRatio;
-      p.x += offsetX;
-    }
-    if (p.y > p.height / p.scale) {
-      p.y = -p.height * p.scale;
-      if (!isSnow && _state._rainImage != null) {
-        p.y = -_state._rainImage!.height.toDouble();
-      }
-      p.reset();
     }
   }
 
@@ -229,7 +252,7 @@ class RainSnowParams {
     this.heightRatio = max(heightRatio, 0.65);
     reset();
     // 初始 y 分布在整个屏幕高度内，避免一开始全在顶部
-    y = kRandom.nextInt(800 ~/ scale).toDouble();
+    y = kRandom.nextDouble() * height / scale;
   }
 
   /// 粒子移出屏幕后重置位置 / 速度 / 透明度等。
@@ -245,8 +268,7 @@ class RainSnowParams {
       speed = 8 * random * ratio * heightRatio;
       alpha = random;
     }
-    x = kRandom.nextInt(width * 1.2 ~/ scale).toDouble() -
-        width * 0.1 ~/ scale;
+    x = (kRandom.nextDouble() * width * 1.2 - width * 0.1) / scale;
   }
 
   static double _speedRatio(FwWeatherType t) {

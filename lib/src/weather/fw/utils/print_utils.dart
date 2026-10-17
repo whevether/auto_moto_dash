@@ -1,8 +1,11 @@
 import 'package:flutter/widgets.dart';
 
 /// 定义打印函数
-typedef WeatherPrint = void Function(String message,
-    {int? wrapWidth, String? tag});
+typedef WeatherPrint = void Function(
+  String message, {
+  int? wrapWidth,
+  String? tag,
+});
 
 const kDebug = false;
 

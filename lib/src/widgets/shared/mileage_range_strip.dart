@@ -38,7 +38,11 @@ class MileageRangeStrip extends StatelessWidget {
       return Text(
         'ODO $odo km · 续航 $range km',
         textAlign: TextAlign.center,
-        style: TextStyle(color: primary, fontSize: fontSize, letterSpacing: 0.4),
+        style: TextStyle(
+          color: primary,
+          fontSize: fontSize,
+          letterSpacing: 0.4,
+        ),
       );
     }
 
@@ -98,7 +102,11 @@ class MileageRangeStrip extends StatelessWidget {
         Text(
           'ODO $odo km  ·  续航 $range km',
           textAlign: TextAlign.center,
-          style: TextStyle(color: primary, fontSize: fontSize, letterSpacing: 0.4),
+          style: TextStyle(
+            color: primary,
+            fontSize: fontSize,
+            letterSpacing: 0.4,
+          ),
         ),
         if (showTrip) ...[
           const SizedBox(height: 2),

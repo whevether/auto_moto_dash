@@ -41,6 +41,7 @@ void main() {
   });
 
   testWidgets('renders Tesla EV cluster with battery', (tester) async {
+    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -57,11 +58,15 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 16));
-    expect(find.textContaining('续航'), findsWidgets);
-    expect(find.textContaining('85%'), findsWidgets);
+    expect(
+      find.bySemanticsLabel(RegExp('.*电量 85%.*续航 380 km.*')),
+      findsOneWidget,
+    );
+    semantics.dispose();
   });
 
   testWidgets('renders motorcycle fuel TFT', (tester) async {
+    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -79,19 +84,21 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 16));
-    expect(find.text('GEAR'), findsOneWidget);
-    expect(find.textContaining('ODO'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('.*燃油 70%.*ODO 11415.0 km.*')),
+      findsOneWidget,
+    );
+    semantics.dispose();
   });
 
-  testWidgets('shows overspeed shift lights on car when over limit', (tester) async {
+  testWidgets('shows overspeed shift lights on car when over limit', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: AutoMotoDashboard(
-            telemetry: DashTelemetry(
-              speedKmh: 130,
-              speedLimitKmh: 120,
-            ),
+            telemetry: DashTelemetry(speedKmh: 130, speedLimitKmh: 120),
             style: DashStyle.hud,
           ),
         ),

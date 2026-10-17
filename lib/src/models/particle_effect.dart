@@ -18,10 +18,10 @@ enum ParticleEffect {
 
 extension ParticleEffectX on ParticleEffect {
   String get label => switch (this) {
-        ParticleEffect.windRush => '风驰',
-        ParticleEffect.blackHole => '黑洞穿越',
-        ParticleEffect.starTunnel => '星门隧道',
-        ParticleEffect.roadTrack => '道路赛道',
-        ParticleEffect.ionStorm => '离子风暴',
-      };
+    ParticleEffect.windRush => '风驰',
+    ParticleEffect.blackHole => '黑洞穿越',
+    ParticleEffect.starTunnel => '星门隧道',
+    ParticleEffect.roadTrack => '道路赛道',
+    ParticleEffect.ionStorm => '离子风暴',
+  };
 }

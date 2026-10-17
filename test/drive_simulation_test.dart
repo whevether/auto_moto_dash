@@ -44,4 +44,30 @@ void main() {
     }
     expect(d.speedKmh, lessThanOrEqualTo(d.maxReverseSpeedKmh + 0.01));
   });
+  test('reverse coasting cannot bypass the forward interlock via neutral', () {
+    final d = DriveSimulation(gear: Gear.reverse, speedKmh: 30);
+    expect(d.trySetGear(Gear.drive), isFalse);
+    expect(d.trySetGear(Gear.neutral), isTrue);
+    expect(d.trySetGear(Gear.drive), isFalse);
+    for (var i = 0; i < 120; i++) {
+      d.tick(1 / 60, accelerating: false, braking: true);
+    }
+    expect(d.trySetGear(Gear.drive), isTrue);
+  });
+
+  test(
+    'invalid timing and low RPM configurations do not poison simulation',
+    () {
+      final d = DriveSimulation(gear: Gear.reverse, maxRpm: 900);
+      d.tick(1 / 60, accelerating: true, braking: false);
+      d.tick(double.nan, accelerating: true, braking: false);
+      d.tick(double.infinity, accelerating: true, braking: false);
+      expect(d.speedKmh.isFinite && d.rpm.isFinite, isTrue);
+      expect(() => DriveSimulation(maxSpeedKmh: 0), throwsArgumentError);
+      expect(
+        () => DriveSimulation(idleRpm: 1000, maxRpm: 800),
+        throwsArgumentError,
+      );
+    },
+  );
 }

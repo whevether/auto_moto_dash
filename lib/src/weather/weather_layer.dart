@@ -5,11 +5,7 @@ import 'fw/bg/weather_bg.dart';
 
 /// Weather background layer backed by vendored flutter_weather_bg.
 class WeatherLayer extends StatelessWidget {
-  const WeatherLayer({
-    super.key,
-    required this.type,
-    this.opacity = 1,
-  });
+  const WeatherLayer({super.key, required this.type, this.opacity = 1});
 
   final WeatherType type;
   final double opacity;

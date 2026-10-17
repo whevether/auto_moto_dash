@@ -1,6 +1,6 @@
 # auto_moto_dash
 
-A pure-Dart Flutter package for motorcycle / car dashboards: digital HUD, tech BMW / Ferrari-style analog clusters, weather backgrounds, and particle effects. No platform channels — drop into any Flutter app.
+A pure-Dart Flutter package for motorcycle / car dashboards: digital HUD and production-inspired analog/LCD clusters, weather backgrounds, and particle effects. No platform channels — drop into any Flutter app.
 
 [中文文档](README_zh.md)
 
@@ -10,8 +10,24 @@ A pure-Dart Flutter package for motorcycle / car dashboards: digital HUD, tech B
 - Optional weather (sun / rain / snow / fog / haze, etc.), based on vendored [flutter_weather_bg](https://github.com/xiaweizi/flutter_weather_bg)
 - 5 mutually exclusive particle effects with inertial flow (fast ramp-up, slow coast-down)
 - `DriveSimulation`: demo PRND model (shift interlocks, coasting, reverse speed cap)
-- Ferrari-style overspeed warning on all car themes (`speedLimitKmh` triggers shift lights + red pulse)
+- Production speed readouts turn red on overspeed; racing shift LEDs follow RPM; digital HUDs retain animated overspeed warnings
 - ODO + remaining range on every theme; SOC on electric themes
+
+## Production-inspired instruments
+
+The default is now `DashStyle.classic`, with weather and particles off. Nine vehicle themes use opaque displays at fixed aspect ratios: BMW 3 Series twin dials, Ferrari 458 yellow tachometer, Tesla Model S, NIO ET7, Li Auto L9, BMW Motorrad Pure Ride, Honda-style analog/LCD, NIU-style negative LCD and Yadea-style positive LCD. Four original digital HUD themes remain available. Landscape is recommended; portrait preserves the instrument proportions.
+
+These are independent interpretations, not pixel-exact OEM replicas. The EV road illustration is decorative and does not imply active driver assistance.
+
+Host-controlled telltales: `leftIndicator`, `rightIndicator`, `highBeam`, `parkingBrake`, `engineWarning` (default `false`, supported by `copyWith`). Production speed digits turn red above `speedLimitKmh`; racing shift LEDs respond to RPM. Manual `gearNumber` applies only to racing and fuel motorcycle themes in D; EVs display PRND.
+
+## Dependencies and validation
+
+Version **0.5.0** requires **Dart 3.13+ / Flutter 3.47+** and `material_ui ^1.7.0`. The example is version `1.1.0+2`. Flutter SDK dependencies remain SDK-managed; `material_color_utilities 0.13.0` and `test_api 0.7.12` cannot be independently upgraded without an SDK update.
+
+`AutoMotoDashboard` normalizes nonfinite telemetry, clamps levels to 0–100%, displays negative speed as a magnitude, and uses a 1,000–30,000 RPM scale. Raw host data remains unchanged. Call `normalized()` explicitly to inspect renderable values. Use `copyWith(clearGearNumber: true)` to clear a manual gear.
+
+Run `flutter analyze` and `flutter test --coverage` in the package, then `flutter test` in `example/`. Android uses AGP 9.4.1, Gradle 9.8.1, built-in Kotlin 2.4.21 and NDK 30.0.16248370.
 
 ## Installation
 
@@ -38,9 +54,7 @@ AutoMotoDashboard(
     rangeKm: 462,
     gear: Gear.drive,
   ),
-  style: DashStyle.hud,
-  weather: WeatherType.heavyRain,
-  particleEffect: ParticleEffect.windRush,
+  style: DashStyle.classic,
   vehicleType: VehicleType.car,
   lightSpeedThresholdKmh: 80,
   onGearSelected: (g) { /* prefer DriveSimulation.trySetGear */ },
@@ -54,9 +68,9 @@ Layer order (bottom → top): `backgroundColor` → weather → particles → cl
 | Param | Type | Default | Description |
 |---|---|---|---|
 | `telemetry` | `DashTelemetry` | required | Host telemetry (speed, RPM, battery, …) |
-| `style` | `DashStyle` | `hud` | Visual theme (exclusive) |
+| `style` | `DashStyle` | `classic` | Visual theme (exclusive) |
 | `weather` | `WeatherType?` | `null` | Weather; `null` disables |
-| `particleEffect` | `ParticleEffect?` | `windRush` | Particles; `null` disables |
+| `particleEffect` | `ParticleEffect?` | `null` | Particles; `null` disables |
 | `vehicleType` | `VehicleType` | `car` | Car or motorcycle outline |
 | `lightSpeedThresholdKmh` | `double` | `80` | Speed (km/h) for full particle flow |
 | `showGearSelector` | `bool` | `true` | Show P/R/N/D strip |
@@ -81,7 +95,7 @@ Car and motorcycle themes are separated via `DashCategory`. Use `DashStyleX.forC
 | `performance` | car | High-refresh smooth digital cluster |
 | `pulseBreath` | car | Breathing / pulse light readout |
 | `classic` | car | BMW-style dual analog gauges |
-| `racing` | car | Ferrari-style cyber tach cluster |
+| `racing` | car | Ferrari 458 yellow central tachometer |
 | `carEvTesla` | car | Tesla EV (SOC + range) |
 | `carEvNio` | car | NIO EV (ring SOC) |
 | `carEvLi` | car | Li Auto EV (wide HUD) |
@@ -96,7 +110,7 @@ Use `style.isDigital` / `style.isAnalog` / `style.isElectric` and `style.label` 
 
 | ParticleEffect | Description |
 |---|---|
-| `windRush` | Exterior wind rush (default) |
+| `windRush` | Exterior wind rush (optional) |
 | `blackHole` | Black-hole / wormhole transit |
 | `starTunnel` | Star gate tunnel |
 | `roadTrack` | Perspective road / track (sky transparent) |

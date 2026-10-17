@@ -26,6 +26,7 @@ class _WeatherNightStarBgState extends State<WeatherNightStarBg>
   final List<_StarParam> _starParams = [];
   final List<_MeteorParam> _meteorParams = [];
   WeatherDataState _state = WeatherDataState.init;
+  Duration _lastFrame = Duration.zero;
   double width = 0;
   double height = 0;
   double widthRatio = 1;
@@ -40,12 +41,13 @@ class _WeatherNightStarBgState extends State<WeatherNightStarBg>
     _state = WeatherDataState.loading;
     _initParams();
     if (!mounted) return;
-    _controller.repeat();
+    if (!_controller.isAnimating) _controller.repeat();
     _state = WeatherDataState.finish;
-    setState(() {});
   }
 
   void _initParams() {
+    _starParams.clear();
+    _meteorParams.clear();
     for (int i = 0; i < _starCount; i++) {
       _starParams.add(
         _StarParam(kRandom.nextInt(2))..init(width, height, widthRatio),
@@ -62,7 +64,20 @@ class _WeatherNightStarBgState extends State<WeatherNightStarBg>
     _controller = AnimationController(
       duration: const Duration(seconds: 5),
       vsync: this,
-    );
+    )..addListener(_advance);
+  }
+
+  void _advance() {
+    final elapsed = _controller.lastElapsedDuration ?? Duration.zero;
+    final frames =
+        ((elapsed - _lastFrame).inMicroseconds / 1e6).clamp(0.0, 0.05) * 60;
+    _lastFrame = elapsed;
+    for (final p in _starParams) {
+      p.move(frames);
+    }
+    for (final p in _meteorParams) {
+      p.move(frames);
+    }
   }
 
   @override
@@ -72,16 +87,25 @@ class _WeatherNightStarBgState extends State<WeatherNightStarBg>
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_state == WeatherDataState.init) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final size = SizeInherited.of(context)!.size;
+    if (size.width > 0 &&
+        size.height > 0 &&
+        (size.width != width || size.height != height)) {
       _setup();
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     if (_state != WeatherDataState.finish ||
         widget.weatherType != FwWeatherType.sunnyNight ||
         _starParams.isEmpty) {
       return const SizedBox.shrink();
     }
     return CustomPaint(
+      size: Size.infinite,
       painter: _StarPainter(
         _starParams,
         _meteorParams,
@@ -108,9 +132,14 @@ class _StarPainter extends CustomPainter {
   final Paint _paint = Paint();
   final Paint _meteorPaint = Paint();
 
-  _StarPainter(this._starParams, this._meteorParams, this.width, this.height,
-      this.widthRatio, Listenable repaint)
-      : super(repaint: repaint) {
+  _StarPainter(
+    this._starParams,
+    this._meteorParams,
+    this.width,
+    this.height,
+    this.widthRatio,
+    Listenable repaint,
+  ) : super(repaint: repaint) {
     _paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 1);
     _paint.color = Colors.white;
     _paint.style = PaintingStyle.fill;
@@ -137,8 +166,7 @@ class _StarPainter extends CustomPainter {
     _meteorPaint.shader = gradient;
     canvas.rotate(pi * p.radians);
     canvas.scale(widthRatio);
-    canvas.translate(
-        p.translateX, tan(pi * 0.1) * _meteorWidth + p.translateY);
+    canvas.translate(p.translateX, tan(pi * 0.1) * _meteorWidth + p.translateY);
     canvas.drawRRect(
       RRect.fromLTRBAndCorners(
         0,
@@ -152,7 +180,6 @@ class _StarPainter extends CustomPainter {
       ),
       _meteorPaint,
     );
-    p.move();
     canvas.restore();
   }
 
@@ -160,13 +187,12 @@ class _StarPainter extends CustomPainter {
     canvas.save();
     // 白色点 × alpha：modulate 替代 4x5 matrix，避免 100 个星星每帧都构造 matrix
     _paint.colorFilter = ColorFilter.mode(
-      Color.fromRGBO(255, 255, 255, p.alpha),
+      Color.fromRGBO(255, 255, 255, p.alpha.clamp(0, 1)),
       BlendMode.modulate,
     );
     canvas.scale(p.scale);
     canvas.drawCircle(Offset(p.x, p.y), 3, _paint);
     canvas.restore();
-    p.move();
   }
 
   @override
@@ -195,8 +221,8 @@ class _MeteorParam {
     translateY = kRandom.nextDouble() * 0.5 * height * widthRatio;
   }
 
-  void move() {
-    translateX -= 20;
+  void move(double frames) {
+    translateX -= 20 * frames;
     if (translateX <= -1.0 * width / widthRatio) reset();
   }
 }
@@ -237,12 +263,12 @@ class _StarParam {
   }
 
   /// 星星的呼吸动画：透明度从 0 → 1.2 → 0 循环。
-  void move() {
+  void move(double frames) {
     if (reverse) {
-      alpha -= 0.01;
+      alpha -= 0.01 * frames;
       if (alpha < 0) reset();
     } else {
-      alpha += 0.01;
+      alpha += 0.01 * frames;
       if (alpha > 1.2) reverse = true;
     }
   }

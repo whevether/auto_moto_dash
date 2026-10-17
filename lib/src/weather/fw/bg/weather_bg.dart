@@ -86,11 +86,7 @@ class WeatherItemBg extends StatelessWidget {
 class SizeInherited extends InheritedWidget {
   final Size size;
 
-  const SizeInherited({
-    super.key,
-    required super.child,
-    required this.size,
-  });
+  const SizeInherited({super.key, required super.child, required this.size});
 
   static SizeInherited? of(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<SizeInherited>();
