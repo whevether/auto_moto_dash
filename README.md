@@ -6,7 +6,8 @@ A pure-Dart Flutter package for motorcycle / car dashboards: digital HUD and pro
 
 ## Features
 
-- 13 mutually exclusive themes: 4 digital HUDs + BMW + Ferrari + Tesla/NIO/Li EV + 4 motorcycle clusters (2 fuel + 2 electric)
+- 39 mutually exclusive themes: 4 digital HUDs + BMW + Ferrari + Tesla/NIO/Li EV + 4 motorcycle clusters (2 fuel + 2 electric) + 26 brand-inspired themes (VW, Toyota, Mercedes, Audi, Porsche, Ford, Honda, Hyundai, Nissan, BMW iDrive, BYD, XPeng, Xiaomi SU7, AITO, Zeekr, Taycan, Lucid, Rivian, Harley-Davidson, Ducati, Yamaha, Kawasaki, Triumph, KTM, Royal Enfield, Zero)
+- `units: DashUnits.imperial` switches to mph / mi / psi / °F. Brand themes draw a text wordmark only; pass `brandBadgeBuilder` to show your own licensed logo. Brand themes interpret each maker's design language (layout, colors, scale) and are not pixel-exact copies.
 - Optional weather (sun / rain / snow / fog / haze, etc.), based on vendored [flutter_weather_bg](https://github.com/xiaweizi/flutter_weather_bg)
 - 5 mutually exclusive particle effects with inertial flow (fast ramp-up, slow coast-down)
 - `DriveSimulation`: demo PRND model (shift interlocks, coasting, reverse speed cap)
@@ -19,15 +20,15 @@ The default is now `DashStyle.classic`, with weather and particles off. Nine veh
 
 These are independent interpretations, not pixel-exact OEM replicas. The EV road illustration is decorative and does not imply active driver assistance.
 
-Host-controlled telltales: `leftIndicator`, `rightIndicator`, `highBeam`, `parkingBrake`, `engineWarning` (default `false`, supported by `copyWith`). Production speed digits turn red above `speedLimitKmh`; racing shift LEDs respond to RPM. Manual `gearNumber` applies only to racing and fuel motorcycle themes in D; EVs display PRND.
+Host-controlled telltales: `leftIndicator`, `rightIndicator`, `highBeam`, `parkingBrake`, `engineWarning` (default `false`, supported by `copyWith`). Production speed digits turn red above `speedLimitKmh`; racing shift LEDs respond to RPM. Also `absWarning`, `seatbeltWarning`, `doorOpen`, `batteryWarning`, `charging`, `cruiseActive`, `tractionControlOff`, `driveMode`, `leanAngleDeg` and `powerPercent`. Manual `gearNumber` applies only to racing, fuel motorcycle and non-electric brand themes in D; EVs display PRND.
 
 ## Dependencies and validation
 
-Version **0.5.0** requires **Dart 3.13+ / Flutter 3.47+** and `material_ui ^1.7.0`. The example is version `1.1.0+2`. Flutter SDK dependencies remain SDK-managed; `material_color_utilities 0.13.0` and `test_api 0.7.12` cannot be independently upgraded without an SDK update.
+Version **0.6.0** requires **Dart 3.14+ / Flutter 3.50+** and `material_ui ^1.11.1`. The example is version `1.1.0+2`. Flutter SDK dependencies remain SDK-managed; `material_color_utilities 0.13.0` and `test_api 0.7.14` cannot be independently upgraded without an SDK update.
 
 `AutoMotoDashboard` normalizes nonfinite telemetry, clamps levels to 0–100%, displays negative speed as a magnitude, and uses a 1,000–30,000 RPM scale. Raw host data remains unchanged. Call `normalized()` explicitly to inspect renderable values. Use `copyWith(clearGearNumber: true)` to clear a manual gear.
 
-Run `flutter analyze` and `flutter test --coverage` in the package, then `flutter test` in `example/`. Android uses AGP 9.4.1, Gradle 9.8.1, built-in Kotlin 2.4.21 and NDK 30.0.16248370.
+Run `flutter analyze` and `flutter test --coverage` in the package, then `flutter test` in `example/`. Android uses AGP 9.4.1, Gradle 9.9.2, built-in Kotlin 2.4.21 and NDK 30.0.16248370.
 
 ## Installation
 

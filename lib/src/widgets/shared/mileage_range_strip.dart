@@ -1,12 +1,14 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/dash_telemetry.dart';
+import '../../models/dash_units.dart';
 
 /// Unified odometer + range readout for all dashboard themes.
 class MileageRangeStrip extends StatelessWidget {
   const MileageRangeStrip({
     super.key,
     required this.telemetry,
+    this.units = DashUnits.metric,
     this.fontSize = 11,
     this.secondaryFontSize = 10,
     this.color,
@@ -18,6 +20,7 @@ class MileageRangeStrip extends StatelessWidget {
   });
 
   final DashTelemetry telemetry;
+  final DashUnits units;
   final double fontSize;
   final double secondaryFontSize;
   final Color? color;
@@ -31,12 +34,13 @@ class MileageRangeStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = color ?? Colors.white.withValues(alpha: 0.55);
     final secondary = secondaryColor ?? Colors.white.withValues(alpha: 0.4);
-    final odo = telemetry.odometerKm.round();
-    final range = telemetry.rangeKm.round();
+    final odo = units.distanceValue(telemetry.odometerKm).round();
+    final range = units.distanceValue(telemetry.rangeKm).round();
+    final unit = units.distanceLabel;
 
     if (compact) {
       return Text(
-        'ODO $odo km · 续航 $range km',
+        'ODO $odo $unit · 续航 $range $unit',
         textAlign: TextAlign.center,
         style: TextStyle(
           color: primary,
@@ -100,7 +104,7 @@ class MileageRangeStrip extends StatelessWidget {
             ),
           ),
         Text(
-          'ODO $odo km  ·  续航 $range km',
+          'ODO $odo $unit  ·  续航 $range $unit',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: primary,
@@ -111,7 +115,7 @@ class MileageRangeStrip extends StatelessWidget {
         if (showTrip) ...[
           const SizedBox(height: 2),
           Text(
-            'TRIP ${telemetry.tripKm.toStringAsFixed(1)} km',
+            'TRIP ${units.distanceValue(telemetry.tripKm).toStringAsFixed(1)} $unit',
             textAlign: TextAlign.center,
             style: TextStyle(color: secondary, fontSize: secondaryFontSize),
           ),

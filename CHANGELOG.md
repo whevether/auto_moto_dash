@@ -1,3 +1,13 @@
+## 0.6.0
+
+* **26 brand-inspired themes** driven by the new `ClusterSpec` / `ClusterSpecs` (layout, colors, scale; 7 reusable templates). Combustion cars: Volkswagen, Toyota/Lexus, Mercedes-Benz MBUX, Audi, Porsche 911, Ford/Lincoln, Honda/Acura, Hyundai/Kia, Nissan, BMW iDrive. EV cars: BYD, XPeng, Xiaomi SU7, AITO, Zeekr, Porsche Taycan, Lucid, Rivian. Motorcycles: Harley-Davidson, Ducati, Yamaha, Kawasaki, Triumph, KTM, Royal Enfield, Zero (electric). The original 13 themes are unchanged.
+* `AutoMotoDashboard.brandBadgeBuilder`: no brand artwork is bundled (trademarks); a text wordmark is drawn by default, and hosts can supply licensed logos through this slot.
+* `DashUnits` (`units:`): km/h ↔ mph, km ↔ mi, bar/psi/kPa and °C/°F, applied to every theme. Telemetry stays metric.
+* New telemetry: `absWarning`, `seatbeltWarning`, `doorOpen`, `batteryWarning`, `charging`, `cruiseActive`, `tractionControlOff`, `driveMode`, `leanAngleDeg`, `powerPercent`; `DashTelemetry.toString`; normalization clamps lean/power.
+* `DashStyle.labelEn` and `AutoMotoDashboard.semanticsLabel` for localization; `DashStyleX.isBrand` / `spec`.
+* Dependencies: `material_ui ^1.11.1`, Dart `^3.14.0` / Flutter `>=3.50.0`; Gradle 9.9.2 in the example. `material_color_utilities 0.13.0` and `test_api 0.7.14` remain pinned by the Flutter SDK.
+* Tests for all themes with extreme telemetry, units, badge slot and semantics.
+
 ## 0.5.0
 
 * Rebuild nine production-inspired instrument themes; default to the classic cluster with optional effects disabled.

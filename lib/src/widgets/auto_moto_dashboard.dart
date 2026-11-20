@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../models/dash_style.dart';
 import '../models/dash_telemetry.dart';
+import '../models/dash_units.dart';
 import '../models/gear.dart';
 import '../models/particle_effect.dart';
 import '../models/vehicle_type.dart';
@@ -31,7 +32,23 @@ class AutoMotoDashboard extends StatelessWidget {
     this.backgroundColor = Colors.black,
     this.onGearSelected,
     this.onGearPointerDown,
+    this.units = DashUnits.metric,
+    this.brandBadgeBuilder,
+    this.semanticsLabel,
   });
+
+  /// Display units (telemetry itself stays metric). Defaults to metric.
+  final DashUnits units;
+
+  /// Optional badge for brand themes, e.g. a licensed logo. When set, the
+  /// text wordmark is hidden and the widget is placed at the theme's badge
+  /// position. Ignored by the digital HUD themes.
+  final Widget Function(BuildContext context, DashStyle style)?
+  brandBadgeBuilder;
+
+  /// Overrides the generated (Chinese) accessibility label of analog /
+  /// brand clusters, e.g. for localisation.
+  final String? semanticsLabel;
 
   /// Host-provided speed, RPM, gear, battery, etc.
   final DashTelemetry telemetry;
@@ -88,6 +105,7 @@ class AutoMotoDashboard extends StatelessWidget {
     DashStyle.motoFuelHybrid => const Color(0xFF00E5FF),
     DashStyle.motoEvNiu => const Color(0xFF00E676),
     DashStyle.motoEvYadea => const Color(0xFF00BCD4),
+    _ => style.spec?.accent ?? const Color(0xFF00E5FF),
   };
 
   Widget _buildClusterBody(DashTelemetry data) {
@@ -97,6 +115,9 @@ class AutoMotoDashboard extends StatelessWidget {
       return ProductionClusterBody(
         telemetry: data,
         style: style,
+        units: units,
+        brandBadgeBuilder: brandBadgeBuilder,
+        semanticsLabel: semanticsLabel,
         showGearSelector: showGearSelector,
         onGearSelected: onGearSelected,
         onGearPointerDown: onGearPointerDown,
@@ -106,6 +127,7 @@ class AutoMotoDashboard extends StatelessWidget {
       telemetry: data,
       style: style,
       vehicleType: vehicleType,
+      units: units,
       lightSpeedThresholdKmh: _flowThreshold,
       showGearSelector: showGearSelector,
       showVehicleOutline: showVehicleOutline,

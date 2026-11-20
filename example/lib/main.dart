@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:auto_moto_dash/auto_moto_dash.dart';
 import 'package:material_ui/material_ui.dart';
@@ -49,9 +50,13 @@ class _DashDemoPageState extends State<DashDemoPage>
   ParticleEffect? _particle;
   bool _panelOpen = false;
   bool _rainbow = false;
+  bool _imperial = false;
   String? _gearHint;
   Timer? _gearHintTimer;
   double _distanceKm = 0;
+  double _power = 0; // EV 功率/回收 -100..100
+  double _lean = 0; // 摩托倾角
+  double _simTime = 0;
 
   bool _pointerAccelerating = false;
   bool _keyAccelerating = false;
@@ -69,10 +74,10 @@ class _DashDemoPageState extends State<DashDemoPage>
     rpm: _drive.rpm,
     maxRpm: _drive.maxRpm,
     redlineRpm: 7000,
-    batteryPercent: 99,
-    fuelPercent: 62,
-    coolantTempC: 90,
-    rangeKm: 462,
+    batteryPercent: _battery,
+    fuelPercent: _fuel,
+    coolantTempC: _coolant,
+    rangeKm: _battery * 4.7,
     speedLimitKmh: 120,
     odometerKm: 12345.6 + _distanceKm,
     tripKm: 31.1 + _distanceKm,
@@ -82,16 +87,25 @@ class _DashDemoPageState extends State<DashDemoPage>
     gearNumber:
         (_style == DashStyle.racing ||
             _style == DashStyle.motoFuelTft ||
-            _style == DashStyle.motoFuelHybrid)
+            _style == DashStyle.motoFuelHybrid ||
+            (_style.isBrand && !_style.isElectric))
         ? (_drive.speedKmh < 1 ? 1 : (_drive.speedKmh / 40).ceil().clamp(1, 6))
         : null,
-    tirePressures: const TirePressures(
-      frontLeft: 2.9,
-      frontRight: 2.8,
-      rearLeft: 2.9,
-      rearRight: 2.9,
+    powerPercent: _power,
+    leanAngleDeg: _lean,
+    tirePressures: TirePressures(
+      frontLeft: 2.9 + _tireHeat,
+      frontRight: 2.8 + _tireHeat,
+      rearLeft: 2.9 + _tireHeat * 1.1,
+      rearRight: 2.9 + _tireHeat * 1.1,
     ),
   );
+
+  // 随行驶变化的演示数据:电量/油量随里程下降,水温与胎压随车速升高。
+  double get _battery => (99 - _distanceKm * 1.5).clamp(5.0, 100.0);
+  double get _fuel => (62 - _distanceKm * 1.0).clamp(5.0, 100.0);
+  double _coolant = 75;
+  double _tireHeat = 0;
 
   @override
   void initState() {
@@ -128,12 +142,57 @@ class _DashDemoPageState extends State<DashDemoPage>
     final previousRpm = _drive.rpm;
     _drive.tick(dt, accelerating: _accelerating, braking: _keyBraking);
     _distanceKm += _drive.speedKmh * dt / 3600;
-    if (previousSpeed != _drive.speedKmh || previousRpm != _drive.rpm) {
+
+    // 驱动 EV 功率条/回收与摩托倾角，让这些主题的指示也会动。
+    _simTime += dt;
+    final speedRatio = (_drive.speedKmh / _drive.maxSpeedKmh).clamp(0.0, 1.0);
+    final double powerTarget;
+    if (_keyBraking && _drive.speedKmh > 0) {
+      powerTarget = -70;
+    } else if (_accelerating && _drive.gear != Gear.park) {
+      powerTarget = 90 - 40 * speedRatio;
+    } else {
+      powerTarget = _drive.speedKmh > 1 ? -12 : 0;
+    }
+    final leanTarget = _drive.speedKmh > 20
+        ? math.sin(_simTime * 0.8) * 38 * speedRatio.clamp(0.2, 1.0)
+        : 0.0;
+    final k = (1 - math.exp(-6 * dt));
+    final prevCoolant = _coolant;
+    final prevHeat = _tireHeat;
+    final prevBattery = _battery;
+    _coolant += ((75 + 20 * speedRatio) - _coolant) * (1 - math.exp(-0.5 * dt));
+    _tireHeat += (0.25 * speedRatio - _tireHeat) * (1 - math.exp(-0.3 * dt));
+    // 接近目标时吸附,保证停车后能停止刷新。
+    if ((_coolant - (75 + 20 * speedRatio)).abs() < 0.05) {
+      _coolant = 75 + 20 * speedRatio;
+    }
+    if ((_tireHeat - 0.25 * speedRatio).abs() < 0.002) {
+      _tireHeat = 0.25 * speedRatio;
+    }
+    final prevPower = _power;
+    final prevLean = _lean;
+    _power += (powerTarget - _power) * k;
+    _lean += (leanTarget - _lean) * k;
+    if (_power.abs() < 0.2 && powerTarget == 0) _power = 0;
+    if (_lean.abs() < 0.2 && leanTarget == 0) _lean = 0;
+
+    if (previousSpeed != _drive.speedKmh ||
+        previousRpm != _drive.rpm ||
+        prevPower != _power ||
+        prevCoolant != _coolant ||
+        prevHeat != _tireHeat ||
+        prevBattery != _battery ||
+        prevLean != _lean) {
       setState(() {});
     }
     if (!_accelerating &&
         !_keyBraking &&
         _drive.speedKmh == 0 &&
+        _power == 0 &&
+        _lean == 0 &&
+        _coolant == 75 &&
+        _tireHeat == 0 &&
         _drive.rpm == _drive.idleRpm) {
       _ticker.stop();
     }
@@ -253,6 +312,7 @@ class _DashDemoPageState extends State<DashDemoPage>
                 showVehicleOutline:
                     _style.isDigitalHud && _category == DashCategory.car,
                 rainbowSpeed: _rainbow,
+                units: _imperial ? DashUnits.imperial : DashUnits.metric,
                 onGearSelected: _tryGear,
                 onGearPointerDown: () {
                   _suppressAccel = true;
@@ -281,6 +341,8 @@ class _DashDemoPageState extends State<DashDemoPage>
                   rpm: _drive.rpm,
                   gear: _drive.gear,
                   rainbow: _rainbow,
+                  imperial: _imperial,
+                  onImperial: (v) => setState(() => _imperial = v),
                   gearHelp: gearHelp,
                   onClose: _closePanel,
                   onStyle: (v) => setState(() => _style = v),
@@ -381,6 +443,8 @@ class _ControlPanel extends StatelessWidget {
     required this.rpm,
     required this.gear,
     required this.rainbow,
+    required this.imperial,
+    required this.onImperial,
     required this.gearHelp,
     required this.onClose,
     required this.onStyle,
@@ -399,6 +463,8 @@ class _ControlPanel extends StatelessWidget {
   final double rpm;
   final Gear gear;
   final bool rainbow;
+  final bool imperial;
+  final ValueChanged<bool> onImperial;
   final String gearHelp;
   final VoidCallback onClose;
   final ValueChanged<DashStyle> onStyle;
@@ -556,20 +622,24 @@ class _ControlPanel extends StatelessWidget {
                   );
                 }).toList(),
               ),
-              if (category == DashCategory.car) ...[
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (category == DashCategory.car)
                     FilterChip(
                       label: const Text('彩虹速度'),
                       selected: rainbow,
                       onSelected: onRainbow,
                     ),
-                  ],
-                ),
-              ],
+                  FilterChip(
+                    label: const Text('英制 (mph / mi / psi / °F)'),
+                    selected: imperial,
+                    onSelected: onImperial,
+                  ),
+                ],
+              ),
             ],
           ),
         ),

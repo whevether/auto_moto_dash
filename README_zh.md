@@ -6,7 +6,8 @@
 
 ## 特性
 
-- 13 套互斥主题：4 套数字 HUD + BMW 3系双圆表 + Ferrari 458 黄色中央转速表 + 特斯拉/蔚来/理想电车 + 4 款摩托车表盘（2 燃油 + 2 电动）
+- 39 套互斥主题：4 套数字 HUD + BMW 3系双圆表 + Ferrari 458 黄色中央转速表 + 特斯拉/蔚来/理想电车 + 4 款摩托车表盘（2 燃油 + 2 电动）+ 26 套品牌风格主题（大众、丰田、奔驰、奥迪、保时捷、福特、本田、现代、日产、宝马 iDrive、比亚迪、小鹏、小米 SU7、问界、极氪、Taycan、Lucid、Rivian、Harley-Davidson、Ducati、Yamaha、Kawasaki、Triumph、KTM、Royal Enfield、Zero）
+- `units: DashUnits.imperial` 切换 mph / mi / psi / °F。品牌主题默认只绘制文字字标，如需 Logo 请通过 `brandBadgeBuilder` 放入自己已获授权的素材；品牌主题参考各厂设计语言（布局、配色、量程），并非逐像素复刻。
 - 可选天气背景（晴雨雪雾霾等，基于内嵌 [flutter_weather_bg](https://github.com/xiaweizi/flutter_weather_bg)）
 - 5 种互斥粒子动效，流速随车速惯性变化（加速跟得快、减速缓落）
 - `DriveSimulation`：演示用 PRND 驾驶模型（档位互锁、滑行、倒车限速）
@@ -19,15 +20,15 @@
 
 各主题为参考量产仪表结构的独立绘制，非原厂逐像素复刻。电车中央道路为静态装饰示意，不代表真实车道感知或辅助驾驶状态。
 
-新增宿主控制指示灯：`leftIndicator`、`rightIndicator`、`highBeam`、`parkingBrake`、`engineWarning`，默认均为 `false`，支持 `copyWith`。仅赛车和燃油摩托在 D 档接受 `gearNumber`；电车显示 PRND。
+新增宿主控制指示灯：`leftIndicator`、`rightIndicator`、`highBeam`、`parkingBrake`、`engineWarning`，默认均为 `false`，支持 `copyWith`。另有 `absWarning`、`seatbeltWarning`、`doorOpen`、`batteryWarning`、`charging`、`cruiseActive`、`tractionControlOff`、`driveMode`、`leanAngleDeg`、`powerPercent`。仅赛车、燃油摩托和非电动品牌主题在 D 档接受 `gearNumber`；电车显示 PRND。
 
 ## 依赖与验证
 
-版本 **0.5.0** 要求 **Dart 3.13+ / Flutter 3.47+**，依赖 `material_ui ^1.7.0`；示例应用版本为 `1.1.0+2`。Flutter SDK 管理的 `material_color_utilities 0.13.0`、`test_api 0.7.12` 仍保持 SDK 固定版本，需随 SDK 更新，未强制覆盖。
+版本 **0.6.0** 要求 **Dart 3.14+ / Flutter 3.50+**，依赖 `material_ui ^1.11.1`；示例应用版本为 `1.1.0+2`。Flutter SDK 管理的 `material_color_utilities 0.13.0`、`test_api 0.7.14` 仍保持 SDK 固定版本，需随 SDK 更新，未强制覆盖。
 
 `AutoMotoDashboard` 会在渲染前规范化非有限遥测、将油量/电量限制在 0–100%、将负车速显示为绝对值，转速量程限制在 1,000–30,000 RPM。原始遥测不会被修改，可显式调用 `normalized()` 查看规范化结果。用 `copyWith(clearGearNumber: true)` 清除手动档位。
 
-主包执行 `flutter analyze`、`flutter test --coverage`；示例目录执行 `flutter test`。Android 使用 AGP 9.4.1、Gradle 9.8.1、内置 Kotlin 2.4.21 和 NDK 30.0.16248370。
+主包执行 `flutter analyze`、`flutter test --coverage`；示例目录执行 `flutter test`。Android 使用 AGP 9.4.1、Gradle 9.9.2、内置 Kotlin 2.4.21 和 NDK 30.0.16248370。
 
 ## 安装
 
@@ -103,6 +104,9 @@ AutoMotoDashboard(
 | `motoFuelHybrid` | 摩托 | Honda 风格指针 + LCD |
 | `motoEvNiu` | 摩托 | NIU 风格负显段码液晶 |
 | `motoEvYadea` | 摩托 | 雅迪风格正显段码液晶 |
+| `carVw` / `carToyota` / `carMercedes` / `carAudi` / `carPorsche` / `carFord` / `carHonda` / `carHyundai` / `carNissan` / `carBmwIdrive` | 汽车 | 燃油车品牌风格（详见 `style.label`） |
+| `carEvByd` / `carEvXpeng` / `carEvXiaomi` / `carEvAito` / `carEvZeekr` / `carEvTaycan` / `carEvLucid` / `carEvRivian` | 汽车 | 电车品牌风格 |
+| `motoHarley` / `motoDucati` / `motoYamaha` / `motoKawasaki` / `motoTriumph` / `motoKtm` / `motoRoyalEnfield` / `motoEvZero` | 摩托 | 摩托与电摩品牌风格 |
 
 `style.isDigital` / `style.isAnalog` / `style.isElectric` / `style.label` 可直接用于 UI 文案。
 

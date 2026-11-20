@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import '../../animation/smoothed_value.dart';
 import '../../models/dash_style.dart';
 import '../../models/dash_telemetry.dart';
+import '../../models/dash_units.dart';
 import '../../models/gear.dart';
 import '../../models/vehicle_type.dart';
 import '../../painters/neon_polygon_painter.dart';
@@ -21,6 +22,7 @@ class DigitalHudBody extends StatefulWidget {
     required this.style,
     required this.vehicleType,
     required this.lightSpeedThresholdKmh,
+    this.units = DashUnits.metric,
     required this.showGearSelector,
     required this.showVehicleOutline,
     this.rainbowSpeed = false,
@@ -32,6 +34,7 @@ class DigitalHudBody extends StatefulWidget {
   final DashTelemetry telemetry;
   final DashStyle style;
   final VehicleType vehicleType;
+  final DashUnits units;
   final double lightSpeedThresholdKmh;
   final bool showGearSelector;
   final bool showVehicleOutline;
@@ -127,7 +130,10 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
         : widget.lightSpeedThresholdKmh;
     final speedNorm = (_speed.value / threshold).clamp(0.0, 1.25);
     final intensity = speedNorm.clamp(0.0, 1.0);
-    final displaySpeed = _speed.value.round().clamp(0, 999);
+    final displaySpeed = widget.units
+        .speedValue(_speed.value)
+        .round()
+        .clamp(0, 999);
 
     return OverspeedWarningLayer(
       speedKmh: _speed.value,
@@ -167,6 +173,7 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
                   children: [
                     MileageRangeStrip(
                       telemetry: widget.telemetry,
+                      units: widget.units,
                       showBattery: true,
                       showTrip: true,
                       fontSize: 13,
@@ -205,7 +212,7 @@ class _DigitalHudBodyState extends State<DigitalHudBody>
                                   ),
                                 ),
                                 Text(
-                                  'KM/H',
+                                  widget.units.speedLabel.toUpperCase(),
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.7),
                                     fontSize: 16,

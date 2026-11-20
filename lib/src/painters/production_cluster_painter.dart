@@ -3,9 +3,43 @@ import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../models/cluster_spec.dart';
 import '../models/dash_style.dart';
 import '../models/dash_telemetry.dart';
+import '../models/dash_units.dart';
 import '../models/gear.dart';
+
+part 'cluster_templates.dart';
+
+/// Colors of a round gauge.
+class _DialLook {
+  const _DialLook({
+    required this.faceA,
+    required this.faceB,
+    required this.ink,
+    required this.needle,
+    this.rim = const Color(0xFF73777B),
+  });
+
+  final Color faceA;
+  final Color faceB;
+  final Color ink;
+  final Color needle;
+  final Color rim;
+}
+
+const _darkLook = _DialLook(
+  faceA: Color(0xFF202327),
+  faceB: Color(0xFF090B0D),
+  ink: Color(0xFFF0F2F3),
+  needle: Color(0xFFF3483C),
+);
+const _yellowLook = _DialLook(
+  faceA: Color(0xFFFFE55B),
+  faceB: Color(0xFFE0AD22),
+  ink: Color(0xFF171A1C),
+  needle: Color(0xFFB71F23),
+);
 
 /// Canvas dimensions are design coordinates; all features scale uniformly.
 class ProductionClusterPainter extends CustomPainter {
@@ -14,12 +48,30 @@ class ProductionClusterPainter extends CustomPainter {
     required this.style,
     required this.speed,
     required this.rpm,
+    this.units = DashUnits.metric,
+    this.showBrandWordmark = true,
+    this.roadPhase = 0,
   });
+
+  /// Scroll phase (0..1 cycles) of the road lane dividers.
+  final double roadPhase;
 
   final DashTelemetry telemetry;
   final DashStyle style;
   final double speed;
   final double rpm;
+  final DashUnits units;
+
+  /// Draws the text wordmark; disabled when the host supplies its own badge.
+  final bool showBrandWordmark;
+
+  String _dist(double km, {int decimals = 0}) =>
+      '${units.distanceValue(km).toStringAsFixed(decimals)} '
+      '${units.distanceLabel}';
+
+  String _temp(double c, {int decimals = 0}) =>
+      '${units.temperatureValue(c).toStringAsFixed(decimals)} '
+      '${units.temperatureLabel}';
   static const white = Color(0xFFF0F2F3);
   static const muted = Color(0xFF8A929A);
   static const red = Color(0xFFF3483C);
@@ -34,7 +86,8 @@ class ProductionClusterPainter extends CustomPainter {
       telemetry.gear == Gear.drive &&
           (style == DashStyle.racing ||
               style == DashStyle.motoFuelTft ||
-              style == DashStyle.motoFuelHybrid) &&
+              style == DashStyle.motoFuelHybrid ||
+              (style.isBrand && !style.isElectric)) &&
           telemetry.gearNumber != null
       ? '${telemetry.gearNumber}'
       : telemetry.gear.label;
@@ -67,7 +120,8 @@ class ProductionClusterPainter extends CustomPainter {
       case DashStyle.motoEvYadea:
         _scooter(true);
       default:
-        break;
+        final spec = style.spec;
+        if (spec != null) _paintSpec(spec);
     }
     _c.restore();
   }
@@ -194,9 +248,11 @@ class ProductionClusterPainter extends CustomPainter {
     double labelScale = 1,
     bool yellow = false,
     double? redline,
+    _DialLook? look,
   }) {
     const start = math.pi * 0.75;
     const sweep = math.pi * 1.5;
+    final face = look ?? (yellow ? _yellowLook : _darkLook);
     _c.drawCircle(
       center,
       radius,
@@ -204,9 +260,7 @@ class ProductionClusterPainter extends CustomPainter {
         ..shader = ui.Gradient.radial(
           center.translate(-radius * 0.2, -radius * 0.3),
           radius * 1.4,
-          yellow
-              ? const [Color(0xFFFFE55B), Color(0xFFE0AD22)]
-              : const [Color(0xFF202327), Color(0xFF090B0D)],
+          [face.faceA, face.faceB],
         ),
     );
     _c.drawCircle(
@@ -215,7 +269,7 @@ class ProductionClusterPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = const Color(0xFF73777B),
+        ..color = face.rim,
     );
     _c.drawCircle(
       center,
@@ -225,7 +279,7 @@ class ProductionClusterPainter extends CustomPainter {
         ..strokeWidth = 1
         ..color = const Color(0xFF303439),
     );
-    final ink = yellow ? const Color(0xFF171A1C) : white;
+    final ink = face.ink;
     if (redline != null && redline < max) {
       final fraction = (redline / max).clamp(0.0, 1.0);
       _arc(
@@ -279,10 +333,7 @@ class ProductionClusterPainter extends CustomPainter {
       needle.shift(const Offset(1, 3)),
       Paint()..color = const Color(0x66000000),
     );
-    _c.drawPath(
-      needle,
-      Paint()..color = yellow ? const Color(0xFFB71F23) : red,
-    );
+    _c.drawPath(needle, Paint()..color = face.needle);
     _c.restore();
     _c.drawCircle(
       center,
@@ -332,6 +383,7 @@ class ProductionClusterPainter extends CustomPainter {
       );
       _line(x - 4, y + 7, x - 4, y + 17, amber, 2);
     }
+    _telltales(y, width);
   }
 
   void _headlamp(double x, double y) {
@@ -371,14 +423,14 @@ class ProductionClusterPainter extends CustomPainter {
   void _footer({Color color = muted, double y = 435}) {
     _line(55, y - 14, _width - 55, y - 14, const Color(0xFF30353A));
     _text(
-      'ODO  ${telemetry.odometerKm.toStringAsFixed(1)} km',
+      'ODO  ${_dist(telemetry.odometerKm, decimals: 1)}',
       60,
       y,
       17,
       color: color,
     );
     _text(
-      '${telemetry.outsideTempC.toStringAsFixed(1)} °C',
+      _temp(telemetry.outsideTempC, decimals: 1),
       _width / 2,
       y,
       17,
@@ -386,7 +438,7 @@ class ProductionClusterPainter extends CustomPainter {
       color: color,
     );
     _text(
-      'RANGE  ${telemetry.rangeKm.round()} km',
+      'RANGE  ${_dist(telemetry.rangeKm)}',
       _width - 255,
       y,
       17,
@@ -432,7 +484,7 @@ class ProductionClusterPainter extends CustomPainter {
   void _speed(double x, double y, {double size = 98, Color color = white}) {
     final over = telemetry.speedLimitKmh > 0 && speed > telemetry.speedLimitKmh;
     _text(
-      speed.abs().round().toString(),
+      units.speedValue(speed.abs()).round().toString(),
       x,
       y,
       size,
@@ -440,18 +492,19 @@ class ProductionClusterPainter extends CustomPainter {
       color: over ? red : color,
       weight: FontWeight.w500,
     );
-    _text('km/h', x, y + size + 3, 19, center: true, color: muted);
+    _text(units.speedLabel, x, y + size + 3, 19, center: true, color: muted);
   }
 
   void _classic() {
     _status(32);
+    final mph = units.speed == SpeedUnit.mph;
     _dial(
       const Offset(276, 231),
       180,
-      value: speed,
-      max: 260,
-      divisions: 13,
-      unit: 'km/h',
+      value: units.speedValue(speed),
+      max: mph ? 160 : 260,
+      divisions: mph ? 16 : 13,
+      unit: units.speedLabel,
     );
     _dial(
       const Offset(924, 231),
@@ -463,12 +516,19 @@ class ProductionClusterPainter extends CustomPainter {
       labelScale: 1000,
       redline: telemetry.redlineRpm,
     );
-    _text('COMFORT', 600, 80, 18, center: true, spacing: 2);
+    _text(
+      telemetry.driveMode ?? 'COMFORT',
+      600,
+      80,
+      18,
+      center: true,
+      spacing: 2,
+    );
     _speed(600, 146, size: 68);
     _text(_gear, 600, 268, 40, center: true);
     _line(500, 329, 700, 329, const Color(0xFF41464B));
     _text(
-      'TRIP  ${telemetry.tripKm.toStringAsFixed(1)} km',
+      'TRIP  ${_dist(telemetry.tripKm, decimals: 1)}',
       600,
       345,
       18,
@@ -479,7 +539,7 @@ class ProductionClusterPainter extends CustomPainter {
     _level(177, 369, 195, telemetry.fuelPercent);
     _text('F', 382, 363, 13, color: muted);
     _text(
-      '${telemetry.coolantTempC.round()} °C',
+      _temp(telemetry.coolantTempC),
       924,
       365,
       18,
@@ -511,15 +571,22 @@ class ProductionClusterPainter extends CustomPainter {
       color: const Color(0xFF16191C),
       weight: FontWeight.w600,
     );
-    _text('SPORT', 160, 85, 22, color: amber, spacing: 3);
+    _text(
+      telemetry.driveMode ?? 'SPORT',
+      160,
+      85,
+      22,
+      color: amber,
+      spacing: 3,
+    );
     _text('ENGINE', 160, 145, 15, color: muted);
-    _text('${telemetry.coolantTempC.round()} °C', 160, 175, 37);
+    _text(_temp(telemetry.coolantTempC), 160, 175, 37);
     _text('FUEL', 160, 256, 15, color: muted);
     _level(160, 292, 180, telemetry.fuelPercent, color: amber);
     _text('${telemetry.fuelPercent.round()} %', 160, 318, 24);
     _speed(966, 143, size: 100);
     _text(
-      'TRIP  ${telemetry.tripKm.toStringAsFixed(1)} km',
+      'TRIP  ${_dist(telemetry.tripKm, decimals: 1)}',
       966,
       324,
       18,
@@ -564,9 +631,42 @@ class ProductionClusterPainter extends CustomPainter {
     );
     _line(x + width * 0.43, y, x, y + height, lane, 2);
     _line(x + width * 0.57, y, x + width, y + height, lane, 2);
-    // Neutral lane illustration; no synthetic traffic or active ADAS claims.
     final cx = x + width / 2;
+    // Scrolling lane dividers (perspective) driven by [roadPhase].
+    _c.save();
+    _c.clipPath(road);
+    const dashes = 7;
+    for (var i = 0; i < dashes; i++) {
+      final s0 = ((roadPhase + i / dashes) % 1.0);
+      final s1 = s0 + 0.045;
+      final f0 = s0 * s0;
+      final f1 = math.min(1.0, s1 * s1);
+      if (f1 <= f0) continue;
+      for (final u in const [-1 / 3, 1 / 3]) {
+        final hw0 = width * (0.07 + 0.43 * f0);
+        final hw1 = width * (0.07 + 0.43 * f1);
+        _line(
+          cx + u * hw0,
+          y + height * f0,
+          cx + u * hw1,
+          y + height * f1,
+          lane.withValues(alpha: 0.25 + 0.6 * f1),
+          0.8 + 3.2 * f1,
+        );
+      }
+    }
+    _c.restore();
     final cy = y + height * 0.71;
+    final braking = telemetry.powerPercent < -20;
+    // Soft ground glow under the ego vehicle.
+    _c.drawOval(
+      Rect.fromCenter(center: Offset(cx, cy + 4), width: 96, height: 120),
+      Paint()
+        ..shader = ui.Gradient.radial(Offset(cx, cy + 4), 60, [
+          lane.withValues(alpha: 0.22),
+          lane.withValues(alpha: 0),
+        ]),
+    );
     final car = RRect.fromRectAndRadius(
       Rect.fromCenter(center: Offset(cx, cy), width: 52, height: 91),
       const Radius.circular(14),
@@ -584,8 +684,16 @@ class ProductionClusterPainter extends CustomPainter {
     );
     _box(cx - 19, cy - 26, 38, 23, const Color(0xFF263441), radius: 5);
     _box(cx - 18, cy + 19, 36, 13, const Color(0xFF263441), radius: 4);
-    _box(cx - 22, cy + 35, 11, 3, red, radius: 1);
-    _box(cx + 11, cy + 35, 11, 3, red, radius: 1);
+    _box(cx - 22, cy + 35, 11, braking ? 5 : 3, red, radius: 1);
+    _box(cx + 11, cy + 35, 11, braking ? 5 : 3, red, radius: 1);
+    if (braking) {
+      _c.drawRect(
+        Rect.fromLTWH(cx - 28, cy + 36, 56, 14),
+        Paint()
+          ..color = red.withValues(alpha: 0.35)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
   }
 
   void _energy(double x, double y, {Color accent = green}) {
@@ -598,7 +706,7 @@ class ProductionClusterPainter extends CustomPainter {
       battery: true,
     );
     _text('${telemetry.batteryPercent.round()}%', x + 96, y, 18, color: accent);
-    _text('${telemetry.rangeKm.round()} km', x, y + 38, 27);
+    _text(_dist(telemetry.rangeKm), x, y + 38, 27);
   }
 
   void _tesla() {
@@ -610,18 +718,25 @@ class ProductionClusterPainter extends CustomPainter {
     _road(465, 123, 345, 267);
     _text('MODEL S', 636, 71, 17, center: true, spacing: 4, color: muted);
     _text('TRIP', 928, 132, 16, color: muted, spacing: 2);
-    _text(telemetry.tripKm.toStringAsFixed(1), 928, 166, 43);
-    _text('km', 928, 219, 17, color: muted);
-    _text('TIRE PRESSURE · bar', 928, 285, 14, color: muted);
+    _text(
+      units.distanceValue(telemetry.tripKm).toStringAsFixed(1),
+      928,
+      166,
+      43,
+    );
+    _text(units.distanceLabel, 928, 219, 17, color: muted);
+    _text('TIRE PRESSURE · ${units.pressureLabel}', 928, 285, 14, color: muted);
     final p = telemetry.tirePressures;
     _text(
-      '${p.frontLeft.toStringAsFixed(1)}     ${p.frontRight.toStringAsFixed(1)}',
+      '${units.pressureText(p.frontLeft)}     '
+      '${units.pressureText(p.frontRight)}',
       935,
       317,
       22,
     );
     _text(
-      '${p.rearLeft.toStringAsFixed(1)}     ${p.rearRight.toStringAsFixed(1)}',
+      '${units.pressureText(p.rearLeft)}     '
+      '${units.pressureText(p.rearRight)}',
       935,
       355,
       22,
@@ -636,10 +751,10 @@ class ProductionClusterPainter extends CustomPainter {
     _text(_gear, 410, 214, 32);
     _road(498, 134, 260, 250, lane: const Color(0xFF566675));
     _text('TRIP DISTANCE', 874, 114, 16, color: muted, spacing: 2);
-    _text('${telemetry.tripKm.toStringAsFixed(1)} km', 874, 149, 38);
+    _text(_dist(telemetry.tripKm, decimals: 1), 874, 149, 38);
     _text('REMAINING RANGE', 874, 236, 16, color: muted, spacing: 2);
     _text('${telemetry.rangeKm.round()}', 874, 268, 53);
-    _text('km', 1027, 302, 18, color: muted);
+    _text(units.distanceLabel, 1027, 302, 18, color: muted);
     _level(93, 361, 270, telemetry.batteryPercent, color: blue);
     _text('${telemetry.batteryPercent.round()}%', 380, 351, 22, color: blue);
     _footer();
@@ -655,18 +770,12 @@ class ProductionClusterPainter extends CustomPainter {
     _text('VEHICLE', 900, 105, 16, color: muted, spacing: 3);
     _energy(900, 163, accent: const Color(0xFFB9D6CF));
     _text('TRIP', 900, 286, 15, color: muted);
-    _text('${telemetry.tripKm.toStringAsFixed(1)} km', 900, 317, 32);
+    _text(_dist(telemetry.tripKm, decimals: 1), 900, 317, 32);
     _footer();
   }
 
   void _tft() {
-    _text(
-      'TOTAL  ${telemetry.odometerKm.round()} km',
-      62,
-      43,
-      18,
-      color: muted,
-    );
+    _text('TOTAL  ${_dist(telemetry.odometerKm)}', 62, 43, 18, color: muted);
     _text('ROAD', 780, 43, 21, center: true, spacing: 2);
     _status(84, width: 900);
     final path = Path()
@@ -714,7 +823,7 @@ class ProductionClusterPainter extends CustomPainter {
     );
     _level(82, 418, 180, telemetry.fuelPercent);
     _text('FUEL', 82, 438, 13, color: muted);
-    _text('${telemetry.coolantTempC.round()} °C', 733, 418, 24, center: true);
+    _text(_temp(telemetry.coolantTempC), 733, 418, 24, center: true);
     _footer(y: 479);
   }
 
@@ -732,21 +841,21 @@ class ProductionClusterPainter extends CustomPainter {
     _box(491, 115, 342, 290, const Color(0xFFB7C5AD), radius: 9);
     const ink = Color(0xFF26342B);
     _text(
-      'TRIP  ${telemetry.tripKm.toStringAsFixed(1)} km',
+      'TRIP  ${_dist(telemetry.tripKm, decimals: 1)}',
       518,
       139,
       18,
       color: ink,
     );
     _segments(
-      speed.abs().round().toString().padLeft(3, ' '),
+      units.speedValue(speed.abs()).round().toString().padLeft(3, ' '),
       529,
       191,
       58,
       ink,
       const Color(0xFFADBEA6),
     );
-    _text('km/h', 745, 274, 16, color: ink);
+    _text(units.speedLabel, 745, 274, 16, color: ink);
     _line(516, 311, 811, 311, ink);
     _text('GEAR', 516, 335, 14, color: ink);
     _text(_gear, 583, 326, 40, color: ink);
@@ -846,14 +955,14 @@ class ProductionClusterPainter extends CustomPainter {
       color: ink,
     );
     _segments(
-      speed.abs().round().toString().padLeft(3, ' '),
+      units.speedValue(speed.abs()).round().toString().padLeft(3, ' '),
       271,
       139,
       92,
       ink,
       yadea ? const Color(0xFFA9BBA1) : const Color(0xFF122423),
     );
-    _text('km/h', 686, 280, 20, color: ink);
+    _text(units.speedLabel, 686, 280, 20, color: ink);
     _line(94, 346, 806, 346, dim);
     _level(
       105,
@@ -865,23 +974,16 @@ class ProductionClusterPainter extends CustomPainter {
       track: yadea ? const Color(0xFF94A68E) : const Color(0xFF2A403C),
     );
     _text('${telemetry.batteryPercent.round()}%', 315, 371, 27, color: ink);
+    _text(_dist(telemetry.rangeKm), 680, 371, 27, color: ink, center: true);
     _text(
-      '${telemetry.rangeKm.round()} km',
-      680,
-      371,
-      27,
-      color: ink,
-      center: true,
-    );
-    _text(
-      'ODO  ${telemetry.odometerKm.toStringAsFixed(1)} km',
+      'ODO  ${_dist(telemetry.odometerKm, decimals: 1)}',
       105,
       436,
       19,
       color: ink,
     );
     _text(
-      '${telemetry.outsideTempC.toStringAsFixed(1)} °C',
+      _temp(telemetry.outsideTempC, decimals: 1),
       735,
       436,
       19,
@@ -893,6 +995,7 @@ class ProductionClusterPainter extends CustomPainter {
       _icon(Icons.arrow_forward, 645, 72, green, 24);
     }
     if (telemetry.highBeam) _headlamp(442, 73);
+    _telltales(100, 900);
   }
 
   @override
@@ -900,5 +1003,8 @@ class ProductionClusterPainter extends CustomPainter {
       telemetry != oldDelegate.telemetry ||
       style != oldDelegate.style ||
       speed != oldDelegate.speed ||
-      rpm != oldDelegate.rpm;
+      rpm != oldDelegate.rpm ||
+      units != oldDelegate.units ||
+      roadPhase != oldDelegate.roadPhase ||
+      showBrandWordmark != oldDelegate.showBrandWordmark;
 }

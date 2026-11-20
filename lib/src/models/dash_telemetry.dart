@@ -76,6 +76,16 @@ class DashTelemetry {
     this.highBeam = false,
     this.parkingBrake = false,
     this.engineWarning = false,
+    this.absWarning = false,
+    this.seatbeltWarning = false,
+    this.doorOpen = false,
+    this.batteryWarning = false,
+    this.charging = false,
+    this.cruiseActive = false,
+    this.tractionControlOff = false,
+    this.driveMode,
+    this.leanAngleDeg = 0,
+    this.powerPercent = 0,
   });
 
   /// Vehicle speed in km/h.
@@ -127,6 +137,29 @@ class DashTelemetry {
   final bool highBeam;
   final bool parkingBrake;
   final bool engineWarning;
+  final bool absWarning;
+  final bool seatbeltWarning;
+  final bool doorOpen;
+
+  /// Traction battery / 12 V fault telltale.
+  final bool batteryWarning;
+  final bool charging;
+  final bool cruiseActive;
+  final bool tractionControlOff;
+
+  /// Drive mode label shown by themes that have a mode slot, e.g. `SPORT`.
+  final String? driveMode;
+
+  /// Motorcycle lean angle in degrees (negative = left), clamped to ±90.
+  final double leanAngleDeg;
+
+  /// Motor power / regeneration, -100 (full regen) to 100 (full power).
+  final double powerPercent;
+
+  @override
+  String toString() =>
+      'DashTelemetry(speedKmh: $speedKmh, rpm: $rpm, gear: ${gear.name}, '
+      'battery: $batteryPercent%, fuel: $fuelPercent%, range: $rangeKm km)';
 
   @override
   bool operator ==(Object other) =>
@@ -151,7 +184,17 @@ class DashTelemetry {
           rightIndicator == other.rightIndicator &&
           highBeam == other.highBeam &&
           parkingBrake == other.parkingBrake &&
-          engineWarning == other.engineWarning;
+          engineWarning == other.engineWarning &&
+          absWarning == other.absWarning &&
+          seatbeltWarning == other.seatbeltWarning &&
+          doorOpen == other.doorOpen &&
+          batteryWarning == other.batteryWarning &&
+          charging == other.charging &&
+          cruiseActive == other.cruiseActive &&
+          tractionControlOff == other.tractionControlOff &&
+          driveMode == other.driveMode &&
+          leanAngleDeg == other.leanAngleDeg &&
+          powerPercent == other.powerPercent;
 
   @override
   int get hashCode => Object.hashAll([
@@ -175,6 +218,16 @@ class DashTelemetry {
     highBeam,
     parkingBrake,
     engineWarning,
+    absWarning,
+    seatbeltWarning,
+    doorOpen,
+    batteryWarning,
+    charging,
+    cruiseActive,
+    tractionControlOff,
+    driveMode,
+    leanAngleDeg,
+    powerPercent,
   ]);
 
   /// Returns finite, renderable values without changing host telemetry.
@@ -200,6 +253,10 @@ class DashTelemetry {
       clearGearNumber:
           gearNumber != null && (gearNumber! < 1 || gearNumber! > 6),
       tirePressures: tirePressures.normalized(),
+      leanAngleDeg: leanAngleDeg.isFinite ? leanAngleDeg.clamp(-90.0, 90.0) : 0,
+      powerPercent: powerPercent.isFinite
+          ? powerPercent.clamp(-100.0, 100.0)
+          : 0,
     );
     return result == this ? this : result;
   }
@@ -226,6 +283,17 @@ class DashTelemetry {
     bool? highBeam,
     bool? parkingBrake,
     bool? engineWarning,
+    bool? absWarning,
+    bool? seatbeltWarning,
+    bool? doorOpen,
+    bool? batteryWarning,
+    bool? charging,
+    bool? cruiseActive,
+    bool? tractionControlOff,
+    String? driveMode,
+    bool clearDriveMode = false,
+    double? leanAngleDeg,
+    double? powerPercent,
   }) {
     return DashTelemetry(
       speedKmh: speedKmh ?? this.speedKmh,
@@ -248,6 +316,16 @@ class DashTelemetry {
       highBeam: highBeam ?? this.highBeam,
       parkingBrake: parkingBrake ?? this.parkingBrake,
       engineWarning: engineWarning ?? this.engineWarning,
+      absWarning: absWarning ?? this.absWarning,
+      seatbeltWarning: seatbeltWarning ?? this.seatbeltWarning,
+      doorOpen: doorOpen ?? this.doorOpen,
+      batteryWarning: batteryWarning ?? this.batteryWarning,
+      charging: charging ?? this.charging,
+      cruiseActive: cruiseActive ?? this.cruiseActive,
+      tractionControlOff: tractionControlOff ?? this.tractionControlOff,
+      driveMode: clearDriveMode ? null : driveMode ?? this.driveMode,
+      leanAngleDeg: leanAngleDeg ?? this.leanAngleDeg,
+      powerPercent: powerPercent ?? this.powerPercent,
     );
   }
 }

@@ -11,4 +11,7 @@ For the `auto_moto_dash` **example app** local / CI builds only — **not** for 
 | storePassword / keyPassword | `automoto123` |
 | 有效期 / Validity | 约 10000 天 / ~10000 days |
 
+⚠️ 密码公开，任何人都能用此密钥签名；切勿用它签发正式版本，正式发布请使用自己的密钥并加入 `.gitignore`。
+Passwords are public: anyone can sign with this key. Never ship a release with it; use your own keystore (kept out of git) for production.
+
 Gradle 配置 / Gradle config：`example/android/key.properties`

@@ -4,8 +4,11 @@
 /// [DashStyle], [WeatherType], [ParticleEffect], and [DriveSimulation].
 library;
 
+export 'src/models/cluster_spec.dart'
+    show ClusterLayout, ClusterSpec, ClusterSpecs;
 export 'src/models/dash_style.dart' show DashCategory, DashStyle, DashStyleX;
 export 'src/models/dash_telemetry.dart';
+export 'src/models/dash_units.dart';
 export 'src/models/gear.dart';
 export 'src/models/particle_effect.dart';
 export 'src/models/vehicle_type.dart';

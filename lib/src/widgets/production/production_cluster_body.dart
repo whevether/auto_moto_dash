@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../animation/smoothed_value.dart';
 import '../../models/dash_style.dart';
 import '../../models/dash_telemetry.dart';
+import '../../models/dash_units.dart';
 import '../../models/gear.dart';
 import '../../painters/production_cluster_painter.dart';
 import '../shared/gear_selector.dart';
@@ -18,10 +19,17 @@ class ProductionClusterBody extends StatefulWidget {
     this.showGearSelector = true,
     this.onGearSelected,
     this.onGearPointerDown,
+    this.units = DashUnits.metric,
+    this.brandBadgeBuilder,
+    this.semanticsLabel,
   });
 
   final DashTelemetry telemetry;
   final DashStyle style;
+  final DashUnits units;
+  final Widget Function(BuildContext context, DashStyle style)?
+  brandBadgeBuilder;
+  final String? semanticsLabel;
   final bool showGearSelector;
   final ValueChanged<Gear>? onGearSelected;
   final VoidCallback? onGearPointerDown;
@@ -59,12 +67,23 @@ class _ProductionClusterBodyState extends State<ProductionClusterBody>
       final rpm = _rpm.value;
       _speed.tick(widget.telemetry.speedKmh, dt.clamp(0, 0.05));
       _rpm.tick(widget.telemetry.rpm, dt.clamp(0, 0.05));
-      if (speed != _speed.value || rpm != _rpm.value) setState(() {});
+      final moving = widget.style.hasRoad && _speed.value > 0.05;
+      if (moving) {
+        // ~20 m per lane-divider cycle.
+        _roadPhase =
+            (_roadPhase + _speed.value / 3.6 * dt.clamp(0, 0.05) / 20) % 1.0;
+      }
+      if (moving || speed != _speed.value || rpm != _rpm.value) {
+        setState(() {});
+      }
       if (!_needsAnimation) _ticker.stop();
     });
   }
 
+  double _roadPhase = 0;
+
   bool get _needsAnimation =>
+      (widget.style.hasRoad && _speed.value > 0.05) ||
       _speed.value != widget.telemetry.speedKmh ||
       (!widget.style.isElectric && _rpm.value != widget.telemetry.rpm);
 
@@ -86,7 +105,11 @@ class _ProductionClusterBodyState extends State<ProductionClusterBody>
   @override
   Widget build(BuildContext context) {
     final t = widget.telemetry;
+    final u = widget.units;
     final moto = widget.style.isMotorcycle;
+    final badge = widget.style.isBrand
+        ? widget.brandBadgeBuilder?.call(context, widget.style)
+        : null;
     final energy = widget.style.isElectric
         ? '电量 ${t.batteryPercent.round()}%'
         : '燃油 ${t.fuelPercent.round()}%';
@@ -99,20 +122,46 @@ class _ProductionClusterBodyState extends State<ProductionClusterBody>
               child: Center(
                 child: Semantics(
                   label:
-                      '${widget.style.label}，${t.speedKmh.round()} km/h，'
-                      '档位 ${t.gear.label}，$energy，续航 ${t.rangeKm.round()} km，'
-                      'ODO ${t.odometerKm.toStringAsFixed(1)} km',
+                      widget.semanticsLabel ??
+                      '${widget.style.label}，'
+                          '${u.speedValue(t.speedKmh).round()} ${u.speedLabel}，'
+                          '档位 ${t.gear.label}，$energy，'
+                          '续航 ${u.distanceValue(t.rangeKm).round()} '
+                          '${u.distanceLabel}，'
+                          'ODO ${u.distanceValue(t.odometerKm).toStringAsFixed(1)} '
+                          '${u.distanceLabel}',
                   child: AspectRatio(
                     aspectRatio: moto ? 900 / 520 : 1200 / 480,
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        painter: ProductionClusterPainter(
-                          telemetry: t,
-                          style: widget.style,
-                          speed: _speed.value,
-                          rpm: _rpm.value,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            painter: ProductionClusterPainter(
+                              telemetry: t,
+                              style: widget.style,
+                              speed: _speed.value,
+                              rpm: _rpm.value,
+                              units: u,
+                              roadPhase: _roadPhase,
+                              showBrandWordmark: badge == null,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (badge != null)
+                          Align(
+                            alignment:
+                                widget.style.spec?.badgeAlignment ??
+                                Alignment.topCenter,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: FractionallySizedBox(
+                                heightFactor: 0.12,
+                                child: FittedBox(child: badge),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

@@ -1,3 +1,13 @@
+## 0.6.0
+
+* **新增 26 套品牌风格主题**，由新增的 `ClusterSpec` / `ClusterSpecs` 数据驱动（布局、配色、量程；7 个可复用绘制模板）。燃油车：大众、丰田/雷克萨斯、奔驰 MBUX、奥迪、保时捷 911、福特/林肯、本田/讴歌、现代/起亚、日产、宝马 iDrive。电车：比亚迪、小鹏、小米 SU7、问界、极氪、保时捷 Taycan、Lucid、Rivian。摩托：Harley-Davidson、Ducati、Yamaha、Kawasaki、Triumph、KTM、Royal Enfield、Zero（电摩）。原有 13 套主题保持不变。
+* 新增 `AutoMotoDashboard.brandBadgeBuilder`：包内不附带品牌素材（受商标保护），默认绘制文字字标；宿主可通过该插槽放入已获授权的 Logo。
+* 新增 `DashUnits`（`units:` 参数）：km/h ↔ mph、km ↔ mi、bar/psi/kPa、°C/°F，对所有主题生效；遥测仍为公制。
+* 新增遥测字段：`absWarning`、`seatbeltWarning`、`doorOpen`、`batteryWarning`、`charging`、`cruiseActive`、`tractionControlOff`、`driveMode`、`leanAngleDeg`、`powerPercent`；新增 `DashTelemetry.toString`；规范化时限制倾角和功率范围。
+* 新增 `DashStyle.labelEn` 与 `AutoMotoDashboard.semanticsLabel` 用于本地化；新增 `DashStyleX.isBrand` / `spec`。
+* 依赖：`material_ui ^1.11.1`，Dart `^3.14.0` / Flutter `>=3.50.0`；示例 Gradle 升至 9.9.2。`material_color_utilities 0.13.0` 与 `test_api 0.7.14` 由 Flutter SDK 固定。
+* 新增覆盖全部主题极值遥测、单位、徽标插槽与语义标签的测试。
+
 ## 0.5.0
 
 * 重绘 9 套量产风格仪表，默认使用经典双表，天气和粒子默认关闭。

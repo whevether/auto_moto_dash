@@ -2,18 +2,18 @@ name: auto_moto_dash
 description: >-
   Motorcycle/car dashboard Flutter package (EN/中文 docs): digital HUD,
   production-inspired analog/LCD clusters, weather backgrounds, and inertial particle effects.
-version: 0.5.0
+version: 0.6.0
 homepage: https://github.com/whevether/auto_moto_dash
 repository: https://github.com/whevether/auto_moto_dash
 
 environment:
-  sdk: ^3.13.0
-  flutter: ">=3.47.0"
+  sdk: ^3.14.0
+  flutter: ">=3.50.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  material_ui: ^1.7.0
+  material_ui: ^1.11.1
 
 dev_dependencies:
   flutter_test:

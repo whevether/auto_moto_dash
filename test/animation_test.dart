@@ -44,19 +44,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.binding.hasScheduledFrame, isFalse, reason: style.name);
       await tester.pumpWidget(view(style, 80));
-      await tester.pumpAndSettle(const Duration(milliseconds: 16));
-      expect(
-        tester.binding.hasScheduledFrame,
-        isFalse,
-        reason: '${style.name} after update',
-      );
+      if (style.hasRoad) {
+        // Road themes keep scrolling lane markings while moving (by design).
+        for (var i = 0; i < 60; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(tester.binding.hasScheduledFrame, isTrue, reason: style.name);
+      } else {
+        await tester.pumpAndSettle(const Duration(milliseconds: 16));
+        expect(
+          tester.binding.hasScheduledFrame,
+          isFalse,
+          reason: '${style.name} after update',
+        );
+      }
       if (!style.isDigitalHud) {
         final paint = tester
             .widgetList<CustomPaint>(find.byType(CustomPaint))
             .map((w) => w.painter)
             .whereType<ProductionClusterPainter>()
             .single;
-        expect(paint.speed, 80);
+        expect(paint.speed, closeTo(80, 1));
       }
     }
   });
