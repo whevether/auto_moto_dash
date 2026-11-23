@@ -51,10 +51,31 @@ class ProductionClusterPainter extends CustomPainter {
     this.units = DashUnits.metric,
     this.showBrandWordmark = true,
     this.roadPhase = 0,
+    this.skipRoad = false,
   });
 
   /// Scroll phase (0..1 cycles) of the road lane dividers.
   final double roadPhase;
+
+  /// Leaves the road area empty so a host widget (e.g. a 3D road view) can
+  /// fill [roadRectFor].
+  final bool skipRoad;
+
+  /// Road view area of [style] as a fraction of the cluster canvas, or `null`
+  /// when the theme has no road view.
+  static Rect? roadRectFor(DashStyle style) {
+    if (!style.hasRoad) return null;
+    final r = switch (style) {
+      DashStyle.carEvTesla => const Rect.fromLTWH(465, 123, 345, 267),
+      DashStyle.carEvNio => const Rect.fromLTWH(498, 134, 260, 250),
+      DashStyle.carEvLi => const Rect.fromLTWH(500, 132, 260, 249),
+      _ => style.spec?.layout == ClusterLayout.virtualCockpit
+          ? const Rect.fromLTWH(455, 112, 290, 268)
+          : const Rect.fromLTWH(465, 123, 345, 267),
+    };
+    const w = 1200.0, h = 480.0;
+    return Rect.fromLTWH(r.left / w, r.top / h, r.width / w, r.height / h);
+  }
 
   final DashTelemetry telemetry;
   final DashStyle style;
@@ -614,6 +635,10 @@ class ProductionClusterPainter extends CustomPainter {
     double height, {
     Color lane = muted,
   }) {
+    if (skipRoad) {
+      _box(x, y, width, height, const Color(0xFF0B0E11), radius: 10);
+      return;
+    }
     final road = Path()
       ..moveTo(x + width * 0.43, y)
       ..lineTo(x + width * 0.57, y)
@@ -1006,5 +1031,6 @@ class ProductionClusterPainter extends CustomPainter {
       rpm != oldDelegate.rpm ||
       units != oldDelegate.units ||
       roadPhase != oldDelegate.roadPhase ||
+      skipRoad != oldDelegate.skipRoad ||
       showBrandWordmark != oldDelegate.showBrandWordmark;
 }

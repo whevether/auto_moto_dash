@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'cockpit_spec.dart';
 import 'dash_style.dart';
+import 'ego_vehicle_model.dart';
 
 /// Drawing template used by a brand theme.
 enum ClusterLayout {
@@ -50,7 +52,19 @@ class ClusterSpec {
     this.brandSpacing = 4,
     this.brandWeight = FontWeight.w600,
     this.badgeAlignment = Alignment.topCenter,
+    this.egoModel,
+    this.egoPaint,
+    this.cockpit,
   });
+
+  /// Overrides the ego vehicle body drawn by 3D views (see `DashStyle.egoVehicle`).
+  final EgoVehicleModel? egoModel;
+
+  /// Overrides the ego vehicle paint drawn by 3D views.
+  final Color? egoPaint;
+
+  /// Overrides the first-person cockpit layout (see `DashStyle.cockpit`).
+  final CockpitSpec? cockpit;
 
   final ClusterLayout layout;
 

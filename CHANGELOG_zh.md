@@ -1,3 +1,15 @@
+## 0.7.0
+
+* **新增驾驶员第一人称 3D 座舱**，通过新入口 `package:auto_moto_dash/auto_moto_dash_3d.dart` 提供（已合并进主包，不再有独立子包）。原生平台（Android、iOS、macOS、Windows、Linux）使用 `flutter_scene ^0.24.3`（Flutter GPU / Impeller）渲染；Web 使用随包打包的 three.js r187（不依赖 CDN），通过 `dart:js_interop` 和 `HtmlElementView` 接入。两端绘制同一份与渲染器无关的 `SceneModel`（每帧只传 `SceneFrame` 增量），网格、ACES 色调映射和曝光一致。
+* 3D 世界：道路按 `RoadProfile` 的曲率和坡度积分生成，含车道线、路缘、护栏、路灯、树木、楼宇和远山；提供城市、高速、乡道三种场景。
+* `TrafficSimulation`：IDM 跟车、MOBIL 变道、刹车灯与转向灯、对向车流、出视野回收。宿主也可通过 `DashTelemetry.trafficVehicles` 传入车辆。
+* 按主题的 `CockpitSpec` 座舱：Yoke、平底或圆形方向盘，仪表罩、窄条、贯穿联屏、中控显示，HUD、后视镜、雨刷和雨滴。摩托主题为骑手视角（车把、TFT、风挡、油箱），随 `leanAngleDeg` 倾斜。实时仪表画面以 30 Hz 截取并贴到座舱屏幕上。
+* 驾驶员相机：加速抬头、刹车点头、车身侧倾、路面颠簸、过弯视线偏转。白天、黄昏、夜晚；近光和远光（聚光灯）；湿滑路面、雾和雨。
+* 带道路视图的主题可用 3D 跟车视角（`AutoMotoDash3D.roadViewBuilder`）。
+* 核心包（仍为纯 Dart）：新增 `DashViewMode`，`AutoMotoDashboard.viewMode` / `cockpitBuilder` / `roadViewBuilder`，`DashTelemetry.trajectory` / `trafficVehicles`，`VehicleTrajectory`、`TrafficVehicle`、`RoadProfile` / `RoadScenario`、`EgoVehicleModel`、`CockpitSpec`，以及 `DashStyle.cockpit` / `egoVehicle` / `egoPaint`。`DriveSimulation.tick(..., steer:)` 增加自行车模型横向运动和车道保持。导出 `GearSelector`。
+* 示例：默认座舱视角；A/D 转向、Q/E 转向灯、H 远光，另有触屏转向按钮；面板可切换视角、道路场景、时间、3D 画质和车型。各平台已开启 Flutter GPU，`web/index.html` 把 `three` 映射到随包模块。
+* 车辆和座舱为两端共用的程序化网格。暂未附带第三方 glb 或 HDR 文件；`VehicleLibrary.register` 预留了替换为授权车模的入口。
+
 ## 0.6.0
 
 * **新增 26 套品牌风格主题**，由新增的 `ClusterSpec` / `ClusterSpecs` 数据驱动（布局、配色、量程；7 个可复用绘制模板）。燃油车：大众、丰田/雷克萨斯、奔驰 MBUX、奥迪、保时捷 911、福特/林肯、本田/讴歌、现代/起亚、日产、宝马 iDrive。电车：比亚迪、小鹏、小米 SU7、问界、极氪、保时捷 Taycan、Lucid、Rivian。摩托：Harley-Davidson、Ducati、Yamaha、Kawasaki、Triumph、KTM、Royal Enfield、Zero（电摩）。原有 13 套主题保持不变。

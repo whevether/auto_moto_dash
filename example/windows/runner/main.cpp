@@ -18,6 +18,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   flutter::DartProject project(L"data");
+  // auto_moto_dash 3D: flutter_scene needs Flutter GPU.
+  project.set_enable_flutter_gpu(true);
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();

@@ -4,6 +4,9 @@
         android:label="auto_moto_dash_example"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- auto_moto_dash 3D: flutter_scene renders through Flutter GPU (Impeller). -->
+        <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="true" />
+        <meta-data android:name="io.flutter.embedding.android.EnableFlutterGPU" android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

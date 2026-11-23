@@ -24,7 +24,7 @@
 
 ## 依赖与验证
 
-版本 **0.6.0** 要求 **Dart 3.14+ / Flutter 3.50+**，依赖 `material_ui ^1.11.1`；示例应用版本为 `1.1.0+2`。Flutter SDK 管理的 `material_color_utilities 0.13.0`、`test_api 0.7.14` 仍保持 SDK 固定版本，需随 SDK 更新，未强制覆盖。
+版本 **0.7.0** 要求 **Dart 3.14+ / Flutter 3.50+**，依赖 `material_ui ^1.11.1`；示例应用版本为 `1.1.0+2`。Flutter SDK 管理的 `material_color_utilities 0.13.0`、`test_api 0.7.14` 仍保持 SDK 固定版本，需随 SDK 更新，未强制覆盖。
 
 `AutoMotoDashboard` 会在渲染前规范化非有限遥测、将油量/电量限制在 0–100%、将负车速显示为绝对值，转速量程限制在 1,000–30,000 RPM。原始遥测不会被修改，可显式调用 `normalized()` 查看规范化结果。用 `copyWith(clearGearNumber: true)` 清除手动档位。
 
@@ -166,6 +166,34 @@ AutoMotoDashboard(
   onGearSelected: (g) => setState(() => sim.trySetGear(g)),
 );
 ```
+
+## 3D 座舱（`auto_moto_dash_3d.dart`）
+
+本包内的 `package:auto_moto_dash/auto_moto_dash_3d.dart` 入口提供驾驶员第一人称视角：透过挡风玻璃看到道路、景物和车流，3D 座舱里的屏幕显示实时仪表。核心入口 `auto_moto_dash.dart` 只提供钩子，引入 3D 入口即可接入。
+
+| 平台 | 后端 |
+| --- | --- |
+| Android、iOS、macOS、Windows、Linux | `flutter_scene ^0.24.3`（Flutter GPU，需要 Impeller） |
+| Web | 随包打包的 three.js r187，经 `dart:js_interop` + `HtmlElementView` |
+
+```dart
+import 'package:auto_moto_dash/auto_moto_dash_3d.dart';
+
+final sim = DriveSimulation(road: RoadProfile(scenario: RoadScenario.city));
+
+AutoMotoDashboard(
+  telemetry: telemetry.copyWith(trajectory: sim.trajectory),
+  style: DashStyle.carEvTesla,
+  viewMode: DashViewMode.cockpit,
+  cockpitBuilder: AutoMotoDash3D.cockpitBuilder(road: sim.road),
+  roadViewBuilder: AutoMotoDash3D.roadViewBuilder(road: sim.road),
+)
+```
+
+- 传入模拟器的 `road`，画出的道路才和车辆位置一致。宿主数据优先：`trajectory.distanceM` / `laneOffsetM` / `steeringDeg` 决定本车位置，`trafficVehicles`（本车坐标系）会替代内置的 IDM/MOBIL 车流。
+- 各平台需开启 Flutter GPU（见 flutter_scene README，示例已配置）：iOS/macOS 的 `Info.plist` 加 `FLTEnableFlutterGPU`，Android manifest 加 `io.flutter.embedding.android.EnableFlutterGPU`，Windows/Linux runner 调用 `set_enable_flutter_gpu`。未开启时视图退回 2D 仪表并给出提示。
+- Web：可按 `example/web/index.html` 为 `three` 加 import map；桥接脚本本身用相对路径导入随包模块。
+- `RenderQuality.low/medium/high` 调整阴影、车流和景物密度；`TimeOfDay3D` 选择白天、黄昏或夜晚；`weather` 控制雨、湿滑路面和雾。
 
 ## 示例应用
 

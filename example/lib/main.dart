@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:auto_moto_dash/auto_moto_dash.dart';
+import 'package:auto_moto_dash/auto_moto_dash_3d.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -42,7 +43,40 @@ class DashDemoPage extends StatefulWidget {
 class _DashDemoPageState extends State<DashDemoPage>
     with SingleTickerProviderStateMixin {
   final FocusNode _focusNode = FocusNode();
-  final DriveSimulation _drive = DriveSimulation();
+  RoadScenario _scenario = RoadScenario.highway;
+  late DriveSimulation _drive = DriveSimulation(
+    road: RoadProfile(scenario: _scenario),
+  );
+  DashViewMode _viewMode = DashViewMode.cockpit;
+  RenderQuality _quality = RenderQuality.high;
+  // Optional deep link, e.g. `?ego=sportCoupe&camera=exterior&time=night`.
+  TimeOfDay3D _timeOfDay =
+      _param(TimeOfDay3D.values, 'time') ?? TimeOfDay3D.day;
+  EgoVehicleModel? _egoModel = _param(EgoVehicleModel.values, 'ego');
+  CameraMode _cameraMode =
+      _param(CameraMode.values, 'camera') ?? CameraMode.driver;
+
+  static T? _param<T extends Enum>(List<T> values, String key) {
+    final v = Uri.base.queryParameters[key];
+    for (final e in values) {
+      if (e.name == v) return e;
+    }
+    return null;
+  }
+
+  bool _openModels = true;
+
+  /// Bundled open models plus whatever is dropped into assets/vehicles/.
+  VehicleModelSet _models = VehicleModelSet.openModels;
+  bool _leftIndicator = false;
+  bool _rightIndicator = false;
+  bool _highBeam = false;
+  bool _steerLeft = false;
+  bool _steerRight = false;
+
+  double _sinceContact = double.infinity;
+
+  double get _steer => (_steerRight ? 1.0 : 0.0) - (_steerLeft ? 1.0 : 0.0);
 
   DashStyle _style = DashStyle.classic;
   DashCategory _category = DashCategory.car;
@@ -56,7 +90,6 @@ class _DashDemoPageState extends State<DashDemoPage>
   double _distanceKm = 0;
   double _power = 0; // EV 功率/回收 -100..100
   double _lean = 0; // 摩托倾角
-  double _simTime = 0;
 
   bool _pointerAccelerating = false;
   bool _keyAccelerating = false;
@@ -83,6 +116,10 @@ class _DashDemoPageState extends State<DashDemoPage>
     tripKm: 31.1 + _distanceKm,
     outsideTempC: 0,
     gear: _drive.gear,
+    leftIndicator: _leftIndicator,
+    rightIndicator: _rightIndicator,
+    highBeam: _highBeam,
+    trajectory: _drive.trajectory,
     parkingBrake: _drive.gear == Gear.park,
     gearNumber:
         (_style == DashStyle.racing ||
@@ -111,6 +148,9 @@ class _DashDemoPageState extends State<DashDemoPage>
   void initState() {
     super.initState();
     _ticker = createTicker(_onTick);
+    VehicleModelSet.openModels.withFolder('assets/vehicles/').then((m) {
+      if (mounted && !identical(m, _models)) setState(() => _models = m);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
@@ -137,14 +177,21 @@ class _DashDemoPageState extends State<DashDemoPage>
         : (elapsed - _lastTick).inMicroseconds / 1e6;
     _lastTick = elapsed;
     if (dt <= 0 || dt > 0.1) return;
+    _sinceContact += dt;
 
     final previousSpeed = _drive.speedKmh;
     final previousRpm = _drive.rpm;
-    _drive.tick(dt, accelerating: _accelerating, braking: _keyBraking);
+    final previousOffset = _drive.laneOffsetM;
+    final previousSteer = _drive.steeringDeg;
+    _drive.tick(
+      dt,
+      accelerating: _accelerating,
+      braking: _keyBraking,
+      steer: _steer,
+    );
     _distanceKm += _drive.speedKmh * dt / 3600;
 
     // 驱动 EV 功率条/回收与摩托倾角，让这些主题的指示也会动。
-    _simTime += dt;
     final speedRatio = (_drive.speedKmh / _drive.maxSpeedKmh).clamp(0.0, 1.0);
     final double powerTarget;
     if (_keyBraking && _drive.speedKmh > 0) {
@@ -154,8 +201,12 @@ class _DashDemoPageState extends State<DashDemoPage>
     } else {
       powerTarget = _drive.speedKmh > 1 ? -12 : 0;
     }
-    final leanTarget = _drive.speedKmh > 20
-        ? math.sin(_simTime * 0.8) * 38 * speedRatio.clamp(0.2, 1.0)
+    // 摩托倾角来自横向加速度（过弯向内倾）。
+    final leanTarget = _drive.speedKmh > 5
+        ? (math.atan2(_drive.lateralAccelMps2, 9.81) * 180 / math.pi).clamp(
+            -50.0,
+            50.0,
+          )
         : 0.0;
     final k = (1 - math.exp(-6 * dt));
     final prevCoolant = _coolant;
@@ -183,11 +234,16 @@ class _DashDemoPageState extends State<DashDemoPage>
         prevCoolant != _coolant ||
         prevHeat != _tireHeat ||
         prevBattery != _battery ||
-        prevLean != _lean) {
+        prevLean != _lean ||
+        previousOffset != _drive.laneOffsetM ||
+        previousSteer != _drive.steeringDeg) {
       setState(() {});
     }
     if (!_accelerating &&
         !_keyBraking &&
+        _steer == 0 &&
+        previousSteer == _drive.steeringDeg &&
+        previousOffset == _drive.laneOffsetM &&
         _drive.speedKmh == 0 &&
         _power == 0 &&
         _lean == 0 &&
@@ -196,6 +252,26 @@ class _DashDemoPageState extends State<DashDemoPage>
         _drive.rpm == _drive.idleRpm) {
       _ticker.stop();
     }
+  }
+
+  // 3D 场景检测到与其他车辆接触：本车停在对方车尾/车侧，不会穿车。
+  void _onContact(EgoContact c) {
+    final limit = c.speedLimitKmh;
+    // 新的一次碰撞（而不是持续贴着）：方向盘被撞得一抖再回正。
+    if (_sinceContact > 0.4) {
+      final closing = c.side != 0
+          ? _drive.speedKmh * 0.5
+          : _drive.speedKmh - (limit ?? _drive.speedKmh);
+      if (closing > 2) {
+        _drive.impact(side: c.side.toDouble(), severity: closing / 40);
+      }
+    }
+    _sinceContact = 0;
+    _drive
+      ..distanceM = c.distanceM
+      ..laneOffsetM = c.laneOffsetM;
+    if (limit != null && _drive.speedKmh > limit) _drive.speedKmh = limit;
+    if (c.side != 0) _drive.headingRad *= 0.3;
   }
 
   void _tryGear(Gear gear) {
@@ -245,6 +321,41 @@ class _DashDemoPageState extends State<DashDemoPage>
       _wakeSimulation();
       return KeyEventResult.handled;
     }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.keyA || key == LogicalKeyboardKey.keyD) {
+      if (isDown || isUp) {
+        setState(() {
+          if (key == LogicalKeyboardKey.keyA) _steerLeft = isDown;
+          if (key == LogicalKeyboardKey.keyD) _steerRight = isDown;
+        });
+        _wakeSimulation();
+      }
+      return KeyEventResult.handled;
+    }
+    if (event is KeyDownEvent) {
+      if (key == LogicalKeyboardKey.keyQ) {
+        setState(() {
+          _leftIndicator = !_leftIndicator;
+          _rightIndicator = false;
+        });
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.keyE) {
+        setState(() {
+          _rightIndicator = !_rightIndicator;
+          _leftIndicator = false;
+        });
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.keyV) {
+        setState(() => _cameraMode = _cameraMode.next);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.keyH) {
+        setState(() => _highBeam = !_highBeam);
+        return KeyEventResult.handled;
+      }
+    }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
         event is KeyDownEvent) {
       _shiftGear(-1);
@@ -278,6 +389,8 @@ class _DashDemoPageState extends State<DashDemoPage>
           if (!focused) {
             _keyAccelerating = false;
             _keyBraking = false;
+            _steerLeft = false;
+            _steerRight = false;
             _pointerAccelerating = false;
           }
         },
@@ -313,11 +426,58 @@ class _DashDemoPageState extends State<DashDemoPage>
                     _style.isDigitalHud && _category == DashCategory.car,
                 rainbowSpeed: _rainbow,
                 units: _imperial ? DashUnits.imperial : DashUnits.metric,
+                viewMode: _viewMode,
+                cockpitBuilder: AutoMotoDash3D.cockpitBuilder(
+                  road: _drive.road,
+                  quality: _quality,
+                  timeOfDay: _timeOfDay,
+                  egoModel: _egoModel,
+                  onContact: _onContact,
+                  models: _openModels ? _models : null,
+                  cameraMode: _cameraMode,
+                  onCameraModeChanged: (m) => setState(() => _cameraMode = m),
+                ),
+                roadViewBuilder: AutoMotoDash3D.roadViewBuilder(
+                  road: _drive.road,
+                  quality: _quality == RenderQuality.high
+                      ? RenderQuality.medium
+                      : RenderQuality.low,
+                  timeOfDay: _timeOfDay,
+                  egoModel: _egoModel,
+                  models: _openModels ? _models : null,
+                ),
                 onGearSelected: _tryGear,
                 onGearPointerDown: () {
                   _suppressAccel = true;
                   _pointerAccelerating = false;
                 },
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 64,
+              child: SafeArea(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _HoldButton(
+                      icon: Icons.chevron_left,
+                      onChanged: (v) {
+                        setState(() => _steerLeft = v);
+                        _wakeSimulation();
+                      },
+                    ),
+                    const SizedBox(width: 96),
+                    _HoldButton(
+                      icon: Icons.chevron_right,
+                      onChanged: (v) {
+                        setState(() => _steerRight = v);
+                        _wakeSimulation();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             if (_panelOpen) ...[
@@ -350,10 +510,35 @@ class _DashDemoPageState extends State<DashDemoPage>
                   onParticle: (v) => setState(() => _particle = v),
                   onCategory: (v) => setState(() {
                     _category = v;
+                    _egoModel = null;
                     _style = DashStyleX.defaultFor(v);
                   }),
                   onGear: _tryGear,
                   onRainbow: (v) => setState(() => _rainbow = v),
+                  viewMode: _viewMode,
+                  onViewMode: (v) => setState(() => _viewMode = v),
+                  scenario: _scenario,
+                  onScenario: (v) => setState(() {
+                    _scenario = v;
+                    final old = _drive;
+                    _drive = DriveSimulation(
+                      road: RoadProfile(scenario: v),
+                      gear: old.gear,
+                      speedKmh: old.speedKmh,
+                    )..rpm = old.rpm;
+                  }),
+                  quality: _quality,
+                  onQuality: (v) => setState(() => _quality = v),
+                  timeOfDay: _timeOfDay,
+                  onTimeOfDay: (v) => setState(() => _timeOfDay = v),
+                  egoModel: _egoModel,
+                  onEgoModel: (v) => setState(() => _egoModel = v),
+                  cameraMode: _cameraMode,
+                  onCameraMode: (v) => setState(() => _cameraMode = v),
+                  openModels: _openModels,
+                  onOpenModels: (v) => setState(() => _openModels = v),
+                  highBeam: _highBeam,
+                  onHighBeam: (v) => setState(() => _highBeam = v),
                 ),
               ),
             ],
@@ -379,7 +564,7 @@ class _DashDemoPageState extends State<DashDemoPage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '按住加速 · ↑↓油门/刹车 · ←→换档',
+                        '按住加速 · ↑↓油门/刹车 · ←→换档 · A/D 转向 · Q/E 转向灯 · H 远光 · V 视角',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.45),
                           fontSize: 11,
@@ -453,7 +638,69 @@ class _ControlPanel extends StatelessWidget {
     required this.onCategory,
     required this.onGear,
     required this.onRainbow,
+    required this.viewMode,
+    required this.onViewMode,
+    required this.scenario,
+    required this.onScenario,
+    required this.quality,
+    required this.onQuality,
+    required this.timeOfDay,
+    required this.onTimeOfDay,
+    required this.egoModel,
+    required this.onEgoModel,
+    required this.cameraMode,
+    required this.onCameraMode,
+    required this.openModels,
+    required this.onOpenModels,
+    required this.highBeam,
+    required this.onHighBeam,
   });
+
+  final DashViewMode viewMode;
+  final ValueChanged<DashViewMode> onViewMode;
+  final RoadScenario scenario;
+  final ValueChanged<RoadScenario> onScenario;
+  final RenderQuality quality;
+  final ValueChanged<RenderQuality> onQuality;
+  final TimeOfDay3D timeOfDay;
+  final ValueChanged<TimeOfDay3D> onTimeOfDay;
+  final EgoVehicleModel? egoModel;
+  final ValueChanged<EgoVehicleModel?> onEgoModel;
+  final CameraMode cameraMode;
+  final ValueChanged<CameraMode> onCameraMode;
+  final bool openModels;
+  final ValueChanged<bool> onOpenModels;
+  final bool highBeam;
+  final ValueChanged<bool> onHighBeam;
+
+  Widget _chips<T>(
+    String title,
+    List<T> values,
+    T selected,
+    String Function(T) label,
+    ValueChanged<T> onSelected,
+  ) => Padding(
+    padding: const EdgeInsets.only(top: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final v in values)
+              ChoiceChip(
+                label: Text(label(v)),
+                selected: v == selected,
+                onSelected: (_) => onSelected(v),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
 
   final DashStyle style;
   final DashCategory category;
@@ -524,6 +771,61 @@ class _ControlPanel extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.45),
                   fontSize: 12,
                 ),
+              ),
+              _chips(
+                '视角',
+                DashViewMode.values,
+                viewMode,
+                (v) => v.label,
+                onViewMode,
+              ),
+              _chips(
+                '道路场景',
+                RoadScenario.values,
+                scenario,
+                (v) => v.label,
+                onScenario,
+              ),
+              _chips(
+                '时间',
+                TimeOfDay3D.values,
+                timeOfDay,
+                (v) => v.label,
+                onTimeOfDay,
+              ),
+              _chips(
+                '3D 画质',
+                RenderQuality.values,
+                quality,
+                (v) => v.label,
+                onQuality,
+              ),
+              _chips(
+                '座舱视角 (V)',
+                CameraMode.values,
+                cameraMode,
+                (v) => v.label,
+                onCameraMode,
+              ),
+              _chips(
+                '车辆模型',
+                const [true, false],
+                openModels,
+                (v) => v ? '开源车模 (Kenney CC0 + Car Concept CC-BY)' : '程序化',
+                onOpenModels,
+              ),
+              _chips<EgoVehicleModel?>(
+                '本车车型',
+                [
+                  null,
+                  ...EgoVehicleModel.values.where(
+                    (m) =>
+                        m.isMotorcycle == (category == DashCategory.motorcycle),
+                  ),
+                ],
+                egoModel,
+                (v) => v?.label ?? '跟随主题',
+                onEgoModel,
               ),
               const SizedBox(height: 16),
               const Text('分类', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -634,6 +936,11 @@ class _ControlPanel extends StatelessWidget {
                       onSelected: onRainbow,
                     ),
                   FilterChip(
+                    label: const Text('远光灯 (H)'),
+                    selected: highBeam,
+                    onSelected: onHighBeam,
+                  ),
+                  FilterChip(
                     label: const Text('英制 (mph / mi / psi / °F)'),
                     selected: imperial,
                     onSelected: onImperial,
@@ -643,6 +950,32 @@ class _ControlPanel extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Press-and-hold button (touch steering).
+class _HoldButton extends StatelessWidget {
+  const _HoldButton({required this.icon, required this.onChanged});
+
+  final IconData icon;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => onChanged(true),
+      onPointerUp: (_) => onChanged(false),
+      onPointerCancel: (_) => onChanged(false),
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: const BoxDecoration(
+          color: Colors.white12,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white70, size: 32),
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../models/dash_style.dart';
 import '../models/dash_telemetry.dart';
 import '../models/dash_units.dart';
+import '../models/dash_view_mode.dart';
+import 'view_builders.dart';
 import '../models/gear.dart';
 import '../models/particle_effect.dart';
 import '../models/vehicle_type.dart';
@@ -35,7 +37,21 @@ class AutoMotoDashboard extends StatelessWidget {
     this.units = DashUnits.metric,
     this.brandBadgeBuilder,
     this.semanticsLabel,
+    this.viewMode = DashViewMode.cluster,
+    this.cockpitBuilder,
+    this.roadViewBuilder,
   });
+
+  /// Cluster only, or first-person cockpit (needs [cockpitBuilder]).
+  final DashViewMode viewMode;
+
+  /// Builds the first-person cockpit, e.g. `AutoMotoDash3D.cockpitBuilder`
+  /// from `auto_moto_dash_3d.dart`. Without it [viewMode] falls back to cluster.
+  final DashCockpitBuilder? cockpitBuilder;
+
+  /// Fills the road area of road-view themes (Tesla / NIO / Li / virtual
+  /// cockpit / EV split), e.g. `AutoMotoDash3D.roadViewBuilder`.
+  final DashRoadViewBuilder? roadViewBuilder;
 
   /// Display units (telemetry itself stays metric). Defaults to metric.
   final DashUnits units;
@@ -108,8 +124,10 @@ class AutoMotoDashboard extends StatelessWidget {
     _ => style.spec?.accent ?? const Color(0xFF00E5FF),
   };
 
-  Widget _buildClusterBody(DashTelemetry data) {
-    final dimForWeather = weather != null || particleEffect != null;
+  Widget _buildClusterBody(DashTelemetry data, {bool forCockpit = false}) {
+    final dimForWeather =
+        !forCockpit && (weather != null || particleEffect != null);
+    final gears = !forCockpit && showGearSelector;
 
     if (!style.isDigitalHud) {
       return ProductionClusterBody(
@@ -118,9 +136,10 @@ class AutoMotoDashboard extends StatelessWidget {
         units: units,
         brandBadgeBuilder: brandBadgeBuilder,
         semanticsLabel: semanticsLabel,
-        showGearSelector: showGearSelector,
-        onGearSelected: onGearSelected,
-        onGearPointerDown: onGearPointerDown,
+        showGearSelector: gears,
+        onGearSelected: forCockpit ? null : onGearSelected,
+        onGearPointerDown: forCockpit ? null : onGearPointerDown,
+        roadViewBuilder: forCockpit ? null : roadViewBuilder,
       );
     }
     return DigitalHudBody(
@@ -129,18 +148,39 @@ class AutoMotoDashboard extends StatelessWidget {
       vehicleType: vehicleType,
       units: units,
       lightSpeedThresholdKmh: _flowThreshold,
-      showGearSelector: showGearSelector,
+      showGearSelector: gears,
       showVehicleOutline: showVehicleOutline,
       rainbowSpeed: rainbowSpeed,
       dimForWeather: dimForWeather,
-      onGearSelected: onGearSelected,
-      onGearPointerDown: onGearPointerDown,
+      onGearSelected: forCockpit ? null : onGearSelected,
+      onGearPointerDown: forCockpit ? null : onGearPointerDown,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final data = telemetry.normalized();
+    if (viewMode == DashViewMode.cockpit && cockpitBuilder != null) {
+      return ColoredBox(
+        color: backgroundColor,
+        child: cockpitBuilder!(
+          context,
+          DashCockpitRequest(
+            telemetry: data,
+            style: style,
+            units: units,
+            weather: weather,
+            cluster: ColoredBox(
+              color: Colors.black,
+              child: _buildClusterBody(data, forCockpit: true),
+            ),
+            showGearSelector: showGearSelector,
+            onGearSelected: onGearSelected,
+            onGearPointerDown: onGearPointerDown,
+          ),
+        ),
+      );
+    }
     return ColoredBox(
       color: backgroundColor,
       child: Stack(

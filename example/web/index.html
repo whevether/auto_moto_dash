@@ -41,6 +41,16 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <!-- auto_moto_dash 3D: bundled three.js r187 (no CDN). The bridge imports
+       three relatively; the import map lets three's addons resolve "three". -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./assets/packages/auto_moto_dash/assets/web/three/three.module.js",
+        "three/addons/": "./assets/packages/auto_moto_dash/assets/web/three/addons/"
+      }
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -1,4 +1,8 @@
+import 'package:flutter/foundation.dart' show listEquals;
+
 import 'gear.dart';
+import 'traffic_vehicle.dart';
+import 'vehicle_trajectory.dart';
 
 /// Tire pressures in bar.
 class TirePressures {
@@ -86,6 +90,8 @@ class DashTelemetry {
     this.driveMode,
     this.leanAngleDeg = 0,
     this.powerPercent = 0,
+    this.trajectory,
+    this.trafficVehicles,
   });
 
   /// Vehicle speed in km/h.
@@ -156,6 +162,14 @@ class DashTelemetry {
   /// Motor power / regeneration, -100 (full regen) to 100 (full power).
   final double powerPercent;
 
+  /// Ego pose on the road for 3D views. `null` lets the view simulate it.
+  final VehicleTrajectory? trajectory;
+
+  /// Surrounding vehicles (e.g. perception output) in ego coordinates.
+  /// `null` lets 3D views run their built-in traffic simulation; an empty
+  /// list shows an empty road.
+  final List<TrafficVehicle>? trafficVehicles;
+
   @override
   String toString() =>
       'DashTelemetry(speedKmh: $speedKmh, rpm: $rpm, gear: ${gear.name}, '
@@ -194,7 +208,9 @@ class DashTelemetry {
           tractionControlOff == other.tractionControlOff &&
           driveMode == other.driveMode &&
           leanAngleDeg == other.leanAngleDeg &&
-          powerPercent == other.powerPercent;
+          powerPercent == other.powerPercent &&
+          trajectory == other.trajectory &&
+          listEquals(trafficVehicles, other.trafficVehicles);
 
   @override
   int get hashCode => Object.hashAll([
@@ -228,6 +244,8 @@ class DashTelemetry {
     driveMode,
     leanAngleDeg,
     powerPercent,
+    trajectory,
+    trafficVehicles == null ? null : Object.hashAll(trafficVehicles!),
   ]);
 
   /// Returns finite, renderable values without changing host telemetry.
@@ -257,6 +275,8 @@ class DashTelemetry {
       powerPercent: powerPercent.isFinite
           ? powerPercent.clamp(-100.0, 100.0)
           : 0,
+      trajectory: trajectory?.normalized(),
+      trafficVehicles: _normalizedTraffic(trafficVehicles),
     );
     return result == this ? this : result;
   }
@@ -294,6 +314,10 @@ class DashTelemetry {
     bool clearDriveMode = false,
     double? leanAngleDeg,
     double? powerPercent,
+    VehicleTrajectory? trajectory,
+    bool clearTrajectory = false,
+    List<TrafficVehicle>? trafficVehicles,
+    bool clearTrafficVehicles = false,
   }) {
     return DashTelemetry(
       speedKmh: speedKmh ?? this.speedKmh,
@@ -326,8 +350,18 @@ class DashTelemetry {
       driveMode: clearDriveMode ? null : driveMode ?? this.driveMode,
       leanAngleDeg: leanAngleDeg ?? this.leanAngleDeg,
       powerPercent: powerPercent ?? this.powerPercent,
+      trajectory: clearTrajectory ? null : trajectory ?? this.trajectory,
+      trafficVehicles: clearTrafficVehicles
+          ? null
+          : trafficVehicles ?? this.trafficVehicles,
     );
   }
+}
+
+/// Drops vehicles with non-finite coordinates; keeps list identity if valid.
+List<TrafficVehicle>? _normalizedTraffic(List<TrafficVehicle>? list) {
+  if (list == null || list.every((v) => v.isValid)) return list;
+  return list.where((v) => v.isValid).toList(growable: false);
 }
 
 double _finite(double value, double fallback) =>

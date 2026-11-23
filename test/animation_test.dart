@@ -1,6 +1,5 @@
 import 'package:auto_moto_dash/auto_moto_dash.dart';
 import 'package:auto_moto_dash/src/animation/smoothed_value.dart';
-import 'package:auto_moto_dash/src/painters/production_cluster_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 

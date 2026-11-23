@@ -24,7 +24,7 @@ Host-controlled telltales: `leftIndicator`, `rightIndicator`, `highBeam`, `parki
 
 ## Dependencies and validation
 
-Version **0.6.0** requires **Dart 3.14+ / Flutter 3.50+** and `material_ui ^1.11.1`. The example is version `1.1.0+2`. Flutter SDK dependencies remain SDK-managed; `material_color_utilities 0.13.0` and `test_api 0.7.14` cannot be independently upgraded without an SDK update.
+Version **0.7.0** requires **Dart 3.14+ / Flutter 3.50+** and `material_ui ^1.11.1`. The example is version `1.1.0+2`. Flutter SDK dependencies remain SDK-managed; `material_color_utilities 0.13.0` and `test_api 0.7.14` cannot be independently upgraded without an SDK update.
 
 `AutoMotoDashboard` normalizes nonfinite telemetry, clamps levels to 0–100%, displays negative speed as a magnitude, and uses a 1,000–30,000 RPM scale. Raw host data remains unchanged. Call `normalized()` explicitly to inspect renderable values. Use `copyWith(clearGearNumber: true)` to clear a manual gear.
 
@@ -163,6 +163,34 @@ AutoMotoDashboard(
   onGearSelected: (g) => setState(() => sim.trySetGear(g)),
 );
 ```
+
+## 3D cockpit (`auto_moto_dash_3d.dart`)
+
+The library `package:auto_moto_dash/auto_moto_dash_3d.dart` (part of this package) adds a first-person driver view: the road, scenery and traffic through the windscreen, and a 3D cabin whose screens show the live cluster. The core entry `auto_moto_dash.dart` only exposes the hooks; import the 3D entry to plug them in.
+
+| Platform | Backend |
+| --- | --- |
+| Android, iOS, macOS, Windows, Linux | `flutter_scene ^0.24.3` (Flutter GPU, needs Impeller) |
+| Web | bundled three.js r187 via `dart:js_interop` + `HtmlElementView` |
+
+```dart
+import 'package:auto_moto_dash/auto_moto_dash_3d.dart';
+
+final sim = DriveSimulation(road: RoadProfile(scenario: RoadScenario.city));
+
+AutoMotoDashboard(
+  telemetry: telemetry.copyWith(trajectory: sim.trajectory),
+  style: DashStyle.carEvTesla,
+  viewMode: DashViewMode.cockpit,
+  cockpitBuilder: AutoMotoDash3D.cockpitBuilder(road: sim.road),
+  roadViewBuilder: AutoMotoDash3D.roadViewBuilder(road: sim.road),
+)
+```
+
+- Pass the simulation's `road` so the drawn road matches the vehicle. Host data wins: `trajectory.distanceM` / `laneOffsetM` / `steeringDeg` place the ego vehicle, and `trafficVehicles` (ego coordinates) replaces the built-in IDM/MOBIL traffic.
+- Enable Flutter GPU per platform (see the flutter_scene README; the example already does): `FLTEnableFlutterGPU` in the iOS/macOS `Info.plist`, `io.flutter.embedding.android.EnableFlutterGPU` in the Android manifest, `set_enable_flutter_gpu` in the Windows/Linux runners. Without it the view falls back to the 2D cluster with a notice.
+- Web: optionally add an import map for `three` (see `example/web/index.html`); the bridge itself imports the bundled module relatively.
+- `RenderQuality.low/medium/high` trades shadows, traffic and scenery density. `TimeOfDay3D` selects day, dusk or night; `weather` drives rain, wet roads and fog.
 
 ## Example app
 

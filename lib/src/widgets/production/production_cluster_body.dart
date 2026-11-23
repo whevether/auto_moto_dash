@@ -8,6 +8,7 @@ import '../../models/dash_units.dart';
 import '../../models/gear.dart';
 import '../../painters/production_cluster_painter.dart';
 import '../shared/gear_selector.dart';
+import '../view_builders.dart';
 
 /// Production-inspired instruments drawn in their own physical display ratio.
 /// The display remains opaque, even when environmental effects are enabled.
@@ -22,7 +23,11 @@ class ProductionClusterBody extends StatefulWidget {
     this.units = DashUnits.metric,
     this.brandBadgeBuilder,
     this.semanticsLabel,
+    this.roadViewBuilder,
   });
+
+  /// Fills the road area of road-view themes instead of the 2D road.
+  final DashRoadViewBuilder? roadViewBuilder;
 
   final DashTelemetry telemetry;
   final DashStyle style;
@@ -110,6 +115,9 @@ class _ProductionClusterBodyState extends State<ProductionClusterBody>
     final badge = widget.style.isBrand
         ? widget.brandBadgeBuilder?.call(context, widget.style)
         : null;
+    final roadRect = widget.roadViewBuilder == null
+        ? null
+        : ProductionClusterPainter.roadRectFor(widget.style);
     final energy = widget.style.isElectric
         ? '电量 ${t.batteryPercent.round()}%'
         : '燃油 ${t.fuelPercent.round()}%';
@@ -144,10 +152,42 @@ class _ProductionClusterBodyState extends State<ProductionClusterBody>
                               rpm: _rpm.value,
                               units: u,
                               roadPhase: _roadPhase,
+                              skipRoad: roadRect != null,
                               showBrandWordmark: badge == null,
                             ),
                           ),
                         ),
+                        if (roadRect != null)
+                          LayoutBuilder(
+                            builder: (context, box) {
+                              final r = Rect.fromLTWH(
+                                roadRect.left * box.maxWidth,
+                                roadRect.top * box.maxHeight,
+                                roadRect.width * box.maxWidth,
+                                roadRect.height * box.maxHeight,
+                              );
+                              return Stack(
+                                children: [
+                                  Positioned.fromRect(
+                                    rect: r,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(
+                                        r.width * 0.03,
+                                      ),
+                                      child: widget.roadViewBuilder!(
+                                        context,
+                                        DashRoadViewRequest(
+                                          telemetry: t,
+                                          style: widget.style,
+                                          units: u,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                         if (badge != null)
                           Align(
                             alignment:
